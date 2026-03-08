@@ -1,0 +1,50 @@
+import multer from 'multer';
+import { BadRequestError } from '../utils/errors';
+
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const ALLOWED_DOC_TYPES = ['application/pdf', ...ALLOWED_IMAGE_TYPES];
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+
+const storage = multer.memoryStorage();
+
+const imageFileFilter = (
+  _req: Express.Request,
+  file: Express.Multer.File,
+  callback: multer.FileFilterCallback,
+) => {
+  if (ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
+    callback(null, true);
+  } else {
+    callback(new BadRequestError('Only image files are allowed (JPEG, PNG, WEBP, GIF)'));
+  }
+};
+
+const docFileFilter = (
+  _req: Express.Request,
+  file: Express.Multer.File,
+  callback: multer.FileFilterCallback,
+) => {
+  if (ALLOWED_DOC_TYPES.includes(file.mimetype)) {
+    callback(null, true);
+  } else {
+    callback(new BadRequestError('Only image and PDF files are allowed'));
+  }
+};
+
+export const uploadImage = multer({
+  storage,
+  limits: { fileSize: MAX_FILE_SIZE },
+  fileFilter: imageFileFilter,
+}).single('avatar');
+
+export const uploadDocument = multer({
+  storage,
+  limits: { fileSize: MAX_FILE_SIZE },
+  fileFilter: docFileFilter,
+}).single('document');
+
+export const uploadMultiple = multer({
+  storage,
+  limits: { fileSize: MAX_FILE_SIZE, files: 10 },
+  fileFilter: imageFileFilter,
+}).any();

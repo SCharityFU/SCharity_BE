@@ -1,0 +1,350 @@
+import { CampaignRepository, CampaignRequestRepository } from '../repositories/campaign.repository';
+import { DonationRepository } from '../repositories/donation.repository';
+import { WithdrawRepository } from '../repositories/withdraw.repository';
+import { UserRepository } from '../repositories/user.repository';
+import { ReportRepository } from '../repositories/report.repository';
+import { Campaign, CampaignStatus } from '../entities/Campaign';
+import { CampaignRequestStatus } from '../entities/CampaignRequest';
+import { WithdrawStatus } from '../entities/WithdrawRequest';
+import { ReportStatus } from '../entities/Report';
+import { AuditLog, AuditAction } from '../entities/AuditLog';
+import { AppDataSource } from '../config/database';
+import { DashboardStats } from '../types';
+import { NotFoundError, BadRequestError, ConflictError } from '../utils/errors';
+import { emailQueue } from '../queues/email.queue';
+import { getPaginationParams } from '../utils/pagination';
+
+import { UserRole } from '../entities/User';
+import { Donation } from '../entities/Donation';
+
+const AuditLogRepository = AppDataSource.getRepository(AuditLog);
+
+export class AdminService {
+  async getDashboardStats(): Promise<DashboardStats> {
+    const [
+      campaignStats,
+      donationStats,
+      paidStats,
+      totalUsers,
+      totalCampaignCreators,
+      totalDonors,
+    ] = await Promise.all([
+      CampaignRepository.getDashboardStats(),
+      DonationRepository.getTotalDonationStats(),
+      WithdrawRepository.getTotalPaidAmount(),
+      UserRepository.count({ where: { role: UserRole.USER } }),
+      CampaignRepository.createQueryBuilder('c')
+        .select('COUNT(DISTINCT c.creatorId)', 'count')
+        .getRawOne()
+        .then((r) => parseInt(r?.count || '0')),
+      AppDataSource.getRepository(Donation)
+        .createQueryBuilder('d')
+        .where('d.donorId IS NOT NULL')
+        .select('COUNT(DISTINCT d.donorId)', 'count')
+        .getRawOne()
+        .then((r) => parseInt(r?.count || '0')),
+    ]);
+
+    return {
+      totalCampaigns: campaignStats.total,
+      successfulCampaigns: campaignStats.completed + campaignStats.withdrawn,
+      suspendedCampaigns: campaignStats.suspended,
+      totalDonationReceived: donationStats.totalReceived,
+      totalDonationPaid: paidStats,
+      adminBalance: donationStats.totalReceived - paidStats,
+      totalCampaignCreators,
+      totalDonors,
+      totalUsers,
+    };
+  }
+
+  async getDonationChartData(interval: 'day' | 'week' | 'month' = 'day', days = 30) {
+    return DonationRepository.getSystemChartData(interval, days);
+  }
+
+  async listCampaignRequests(page: number, limit: number, status?: CampaignRequestStatus) {
+    const { skip } = getPaginationParams(page, limit);
+    void skip;
+    return CampaignRequestRepository.findWithPagination(page, limit, status);
+  }
+
+  async getCampaignRequestById(id: string) {
+    const request = await CampaignRequestRepository.findOne({
+      where: { id },
+      relations: ['requester', 'reviewedBy'],
+    });
+    if (!request) throw new NotFoundError('Campaign request not found');
+    return request;
+  }
+
+  async reviewCampaignRequest(
+    id: string,
+    adminId: string,
+    action: 'approve' | 'reject',
+    rejectReason?: string,
+  ) {
+    const request = await CampaignRequestRepository.findOne({ where: { id } });
+    if (!request) throw new NotFoundError('Campaign request not found');
+
+    if (request.status !== CampaignRequestStatus.PENDING) {
+      throw new ConflictError('Request already processed');
+    }
+
+    const now = new Date();
+    request.reviewedById = adminId;
+    request.reviewedAt = now;
+
+    if (action === 'approve') {
+      request.status = CampaignRequestStatus.APPROVED;
+
+      // Create actual campaign
+      const campaign = CampaignRepository.create({
+        title: request.title,
+        story: request.story,
+        goalAmount: request.goalAmount,
+        deadline: request.deadline,
+        category: request.category as Campaign['category'],
+        thumbnailUrl: request.thumbnailUrl,
+        mediaUrls: request.mediaUrls,
+        status: CampaignStatus.ACTIVE,
+        creatorId: request.requesterId,
+        approvedAt: now,
+      });
+
+      const savedCampaign = await CampaignRepository.save(campaign);
+      request.campaignId = savedCampaign.id;
+
+      const requester = await UserRepository.findOne({ where: { id: request.requesterId } });
+      await emailQueue.add('sendCampaignApprovedEmail', {
+        email: requester?.email,
+        creatorName: requester?.fullName,
+        campaignTitle: request.title,
+      });
+    } else {
+      if (!rejectReason) throw new BadRequestError('Reject reason is required');
+      request.status = CampaignRequestStatus.REJECTED;
+      request.rejectReason = rejectReason;
+
+      const requester = await UserRepository.findOne({ where: { id: request.requesterId } });
+      await emailQueue.add('sendCampaignRejectedEmail', {
+        email: requester?.email,
+        creatorName: requester?.fullName,
+        campaignTitle: request.title,
+        reason: rejectReason,
+      });
+    }
+
+    await CampaignRequestRepository.save(request);
+
+    // Audit log
+    await AuditLogRepository.save({
+      action: action === 'approve' ? AuditAction.CAMPAIGN_APPROVED : AuditAction.CAMPAIGN_REJECTED,
+      actorId: adminId,
+      targetId: id,
+      targetType: 'CampaignRequest',
+      metadata: { action, rejectReason },
+    });
+
+    return request;
+  }
+
+  async listCampaigns(
+    page: number,
+    limit: number,
+    filters: {
+      status?: CampaignStatus;
+      search?: string;
+      category?: string;
+    },
+  ) {
+    return CampaignRepository.findWithPagination(page, limit, filters, 'createdAt', 'DESC');
+  }
+
+  async getCampaignDetails(id: string) {
+    const campaign = await CampaignRepository.findOne({
+      where: { id },
+      relations: ['creator'],
+    });
+    if (!campaign) throw new NotFoundError('Campaign not found');
+    return campaign;
+  }
+
+  async suspendCampaign(id: string, adminId: string, reason: string) {
+    const campaign = await CampaignRepository.findOne({ where: { id } });
+    if (!campaign) throw new NotFoundError('Campaign not found');
+
+    if (campaign.status === CampaignStatus.SUSPENDED) {
+      throw new ConflictError('Campaign is already suspended');
+    }
+
+    campaign.status = CampaignStatus.SUSPENDED;
+    campaign.suspendReason = reason;
+    campaign.suspendedAt = new Date();
+    await CampaignRepository.save(campaign);
+
+    // Cancel pending withdraw requests
+    await WithdrawRepository.createQueryBuilder()
+      .update()
+      .set({ status: WithdrawStatus.REJECTED, rejectReason: 'Campaign suspended by admin' })
+      .where('campaignId = :id AND status = :status', { id, status: WithdrawStatus.PENDING })
+      .execute();
+
+    await AuditLogRepository.save({
+      action: AuditAction.CAMPAIGN_SUSPENDED,
+      actorId: adminId,
+      targetId: id,
+      targetType: 'Campaign',
+      metadata: { reason },
+    });
+
+    // Notify campaign creator
+    const creator = await UserRepository.findOne({ where: { id: campaign.creatorId } });
+    if (creator) {
+      await emailQueue.add('sendCampaignSuspendedEmail', {
+        email: creator.email,
+        creatorName: creator.fullName,
+        campaignTitle: campaign.title,
+        reason,
+      });
+    }
+
+    return campaign;
+  }
+
+  async unsuspendCampaign(id: string, adminId: string) {
+    const campaign = await CampaignRepository.findOne({ where: { id } });
+    if (!campaign) throw new NotFoundError('Campaign not found');
+
+    if (campaign.status !== CampaignStatus.SUSPENDED) {
+      throw new BadRequestError('Campaign is not suspended');
+    }
+
+    campaign.status = CampaignStatus.ACTIVE;
+    campaign.suspendReason = null as unknown as string;
+    campaign.suspendedAt = null as unknown as Date;
+    await CampaignRepository.save(campaign);
+
+    await AuditLogRepository.save({
+      action: AuditAction.CAMPAIGN_UNSUSPENDED,
+      actorId: adminId,
+      targetId: id,
+      targetType: 'Campaign',
+      metadata: {},
+    });
+
+    return campaign;
+  }
+
+  async listWithdrawRequests(page: number, limit: number, status?: WithdrawStatus) {
+    return WithdrawRepository.findWithPagination(page, limit, status ? { status } : undefined);
+  }
+
+  async processWithdrawRequest(
+    id: string,
+    adminId: string,
+    action: 'approve' | 'reject',
+    rejectReason?: string,
+  ) {
+    const request = await WithdrawRepository.findOne({
+      where: { id },
+      relations: ['campaign', 'requester'],
+    });
+    if (!request) throw new NotFoundError('Withdraw request not found');
+
+    if (request.status !== WithdrawStatus.PENDING) {
+      throw new ConflictError('Withdraw request already processed');
+    }
+
+    request.processedById = adminId;
+    request.processedAt = new Date();
+
+    if (action === 'approve') {
+      request.status = WithdrawStatus.APPROVED;
+      // In production, trigger actual bank transfer here
+      request.status = WithdrawStatus.COMPLETED;
+
+      // Update campaign status
+      request.campaign.status = CampaignStatus.WITHDRAWN;
+      await CampaignRepository.save(request.campaign);
+
+      await emailQueue.add('sendWithdrawApprovedEmail', {
+        email: request.requester.email,
+        creatorName: request.requester.fullName,
+        campaignTitle: request.campaign.title,
+        amount: request.amount,
+      });
+    } else {
+      if (!rejectReason) throw new BadRequestError('Reject reason required');
+      request.status = WithdrawStatus.REJECTED;
+      request.rejectReason = rejectReason;
+
+      await emailQueue.add('sendWithdrawRejectedEmail', {
+        email: request.requester.email,
+        creatorName: request.requester.fullName,
+        campaignTitle: request.campaign.title,
+        reason: rejectReason,
+      });
+    }
+
+    await WithdrawRepository.save(request);
+
+    await AuditLogRepository.save({
+      action: action === 'approve' ? AuditAction.WITHDRAW_APPROVED : AuditAction.WITHDRAW_REJECTED,
+      actorId: adminId,
+      targetId: id,
+      targetType: 'WithdrawRequest',
+      metadata: { action, rejectReason },
+    });
+
+    return request;
+  }
+
+  async listReports(page: number, limit: number, status?: ReportStatus) {
+    return ReportRepository.findWithPagination(page, limit, status);
+  }
+
+  async resolveReport(id: string, adminId: string) {
+    const report = await ReportRepository.findOne({ where: { id } });
+    if (!report) throw new NotFoundError('Report not found');
+
+    report.status = ReportStatus.RESOLVED;
+    report.resolvedById = adminId;
+    report.resolvedAt = new Date();
+    await ReportRepository.save(report);
+
+    return report;
+  }
+
+  async listAllTransactions(
+    page: number,
+    limit: number,
+    search?: string,
+    sortOrder: 'ASC' | 'DESC' = 'DESC',
+  ) {
+    return DonationRepository.findAllWithPagination(page, limit, search, sortOrder);
+  }
+
+  async getCampaignTransactions(
+    campaignId: string,
+    page: number,
+    limit: number,
+    search?: string,
+    sortBy = 'createdAt',
+    sortOrder: 'ASC' | 'DESC' = 'DESC',
+  ) {
+    const campaign = await CampaignRepository.findOne({ where: { id: campaignId } });
+    if (!campaign) throw new NotFoundError('Campaign not found');
+    return DonationRepository.findByCampaignId(campaignId, page, limit, search, sortBy, sortOrder);
+  }
+
+  async getWithdrawRequestById(id: string) {
+    const request = await WithdrawRepository.findOne({
+      where: { id },
+      relations: ['campaign', 'requester'],
+    });
+    if (!request) throw new NotFoundError('Withdraw request not found');
+    return request;
+  }
+}
+
+export const adminService = new AdminService();

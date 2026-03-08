@@ -1,4 +1,10 @@
+import path from 'path';
 import swaggerJsdoc from 'swagger-jsdoc';
+
+// In production (Docker), __filename ends with .js and files are under dist/
+// In development, __filename ends with .ts and files are under src/
+const ext = __filename.endsWith('.js') ? 'js' : 'ts';
+const apiBase = path.join(__dirname, '..');
 
 const options: swaggerJsdoc.Options = {
   definition: {
@@ -18,6 +24,10 @@ const options: swaggerJsdoc.Options = {
         description: 'Development Server',
       },
       {
+        url: `https://scharity-backend.onrender.com/api/v1`,
+        description: 'Staging Server',
+      },
+      {
         url: 'https://api.scharity.vn/api/v1',
         description: 'Production Server',
       },
@@ -33,7 +43,11 @@ const options: swaggerJsdoc.Options = {
     },
     security: [{ bearerAuth: [] }],
   },
-  apis: ['./src/routes/*.ts', './src/entities/*.ts', './src/docs/*.ts'],
+  apis: [
+    path.join(apiBase, `routes/*.${ext}`),
+    path.join(apiBase, `entities/*.${ext}`),
+    path.join(apiBase, `docs/*.${ext}`),
+  ],
 };
 
 export const swaggerSpec = swaggerJsdoc(options);

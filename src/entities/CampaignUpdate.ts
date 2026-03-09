@@ -7,56 +7,58 @@ import {
   ManyToOne,
   JoinColumn,
   Index,
-} from 'typeorm';
-import { User } from './User';
-import { Campaign } from './Campaign';
+} from "typeorm";
+import { User } from "./User";
+import { Campaign } from "./Campaign";
 
 export enum UpdateCategory {
-  PROGRESS = 'progress',
-  FINANCIAL = 'financial',
-  THANK_YOU = 'thank_you',
-  OTHER = 'other',
+  PROGRESS = "progress",
+  FINANCIAL = "financial",
+  THANK_YOU = "thank_you",
+  OTHER = "other",
+  AFTER_CAMPAIGN = "after_campaign",
+  COMPLETION = "completion",
 }
 
-@Entity('campaign_updates')
-@Index(['campaignId'])
+@Entity("campaign_updates")
+@Index(["campaignId"])
 export class CampaignUpdate {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column({ type: 'varchar', length: 100 })
+  @Column({ type: "varchar", length: 100 })
   title: string;
 
-  @Column({ type: 'text' })
+  @Column({ type: "text" })
   content: string;
 
-  @Column({ type: 'enum', enum: UpdateCategory, default: UpdateCategory.PROGRESS })
+  @Column({ type: "enum", enum: UpdateCategory, default: UpdateCategory.PROGRESS })
   category: UpdateCategory;
 
-  @Column({ type: 'simple-array', nullable: true })
+  @Column({ type: "simple-array", nullable: true })
   mediaUrls: string[];
 
   @Column({ default: false })
   isEdited: boolean;
 
-  @Column({ nullable: true, type: 'timestamp' })
+  @Column({ nullable: true, type: "timestamp" })
   editedAt: Date;
 
-  @Column({ nullable: true, type: 'boolean', default: false })
+  @Column({ nullable: true, type: "boolean", default: false })
   isDraft: boolean;
 
   @Column()
   campaignId: string;
 
   @ManyToOne(() => Campaign, (campaign) => campaign.updates)
-  @JoinColumn({ name: 'campaignId' })
+  @JoinColumn({ name: "campaignId" })
   campaign: Campaign;
 
   @Column()
   creatorId: string;
 
   @ManyToOne(() => User)
-  @JoinColumn({ name: 'creatorId' })
+  @JoinColumn({ name: "creatorId" })
   creator: User;
 
   @CreateDateColumn()

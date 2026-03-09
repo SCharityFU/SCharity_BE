@@ -1,0 +1,23 @@
+erDiagram
+    User ||--o{ Campaign : "creates"
+    User ||--o{ Donation : "donates"
+    User ||--o{ Report : "reports"
+    User ||--o{ BankAccount : "owns"
+    User ||--o{ CampaignRequest : "requests"
+    User ||--o{ CampaignUpdate : "authors"
+    User ||--o{ WithdrawRequest : "requests"
+    User ||--o{ Comment : "writes"
+    User ||--o{ AuditLog : "performs"
+
+    Campaign ||--o{ Donation : "receives"
+    Campaign ||--o{ WithdrawRequest : "has"
+    Campaign ||--o{ Report : "is reported"
+    Campaign ||--o{ CampaignUpdate : "has updates"
+    Campaign ||--o{ CampaignRequest : "originates from"
+    Campaign ||--o{ Comment : "has"
+
+    Donation ||--o| Comment : "linked to"
+
+    CampaignRequest }o--|| User : "reviewed by"
+    Report }o--o| User : "resolved by"
+    WithdrawRequest }o--o| User : "processed by"

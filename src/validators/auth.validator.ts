@@ -53,9 +53,15 @@ export const changePasswordSchema = z
     path: ['confirmPassword'],
   });
 
+export const googleLoginSchema = z.object({
+  idToken: z.string().min(1, 'ID token is required'),
+});
+
 export type RegisterDto = z.infer<typeof registerSchema>;
 export type LoginDto = z.infer<typeof loginSchema>;
 export type RefreshTokenDto = z.infer<typeof refreshTokenSchema>;
 export type ForgotPasswordDto = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordDto = z.infer<typeof resetPasswordSchema>;
 export type ChangePasswordDto = z.infer<typeof changePasswordSchema>;
+export type GoogleLoginDto = z.infer<typeof googleLoginSchema>;
+

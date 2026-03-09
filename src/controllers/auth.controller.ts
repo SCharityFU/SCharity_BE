@@ -26,6 +26,15 @@ export const authController = {
     }
   },
 
+  async googleLogin(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await authService.googleLoginWithToken(req.body.idToken);
+      sendSuccess(res, result);
+    } catch (err) {
+      next(err);
+    }
+  },
+
   async refreshToken(req: Request, res: Response, next: NextFunction) {
     try {
       const result = await authService.refreshToken(req.body.refreshToken);

@@ -54,7 +54,7 @@ export const changePasswordSchema = z
   });
 
 export const googleLoginSchema = z.object({
-  idToken: z.string().min(1, 'Token is required'),
+  idToken: z.string().min(1, 'ID token is required'),
 });
 
 export type RegisterDto = z.infer<typeof registerSchema>;

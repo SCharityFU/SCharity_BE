@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
+import { OAuth2Client } from 'google-auth-library';
 import { UserRepository } from '../repositories/user.repository';
 import { User, UserRole } from '../entities/User';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../utils/jwt';
@@ -10,6 +11,8 @@ import redisClient from '../config/redis';
 
 const REFRESH_TOKEN_TTL = 30 * 24 * 60 * 60; // 30 days in seconds
 const SALT_ROUNDS = 12;
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 export class AuthService {
   async register(
@@ -134,6 +137,36 @@ export class AuthService {
       ...tokens,
     };
   }
+
+  async googleLoginWithToken(accessToken: string): Promise<{ user: Partial<User>; accessToken: string; refreshToken: string }> {
+    try {
+      const { OAuth2Client } = require('google-auth-library');
+      const oAuth2Client = new OAuth2Client();
+      oAuth2Client.setCredentials({ access_token: accessToken });
+
+      const oauth2 = require('@googleapis/oauth2').oauth2({
+        auth: oAuth2Client,
+        version: 'v2',
+      });
+
+      const { data } = await oauth2.userinfo.get();
+
+      if (!data) throw new UnauthorizedError('Invalid Google token');
+
+      const profile = {
+        id: data.id || '',
+        emails: data.email ? [{ value: data.email }] : [],
+        displayName: data.name || 'Google User',
+        photos: data.picture ? [{ value: data.picture }] : [],
+      };
+
+      return this.googleLogin(profile);
+    } catch (error) {
+       console.error("Google Auth Error:", error);
+       throw new UnauthorizedError('Failed to verify Google token');
+    }
+  }
+
 
   async forgotPassword(email: string): Promise<void> {
     const user = await UserRepository.findByEmail(email);

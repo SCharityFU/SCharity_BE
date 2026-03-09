@@ -11,6 +11,7 @@ import {
   forgotPasswordSchema,
   resetPasswordSchema,
   changePasswordSchema,
+  googleLoginSchema,
 } from '../validators/auth.validator';
 
 /**
@@ -92,6 +93,41 @@ router.post('/register', authRateLimiter, validate(registerSchema), authControll
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post('/login', authRateLimiter, validate(loginSchema), authController.login);
+
+/**
+ * @swagger
+ * /auth/google-login:
+ *   post:
+ *     summary: Login with Google idToken
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               idToken:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       $ref: '#/components/schemas/AuthResponse'
+ */
+router.post(
+  '/google-login',
+  authRateLimiter,
+  validate(googleLoginSchema),
+  authController.googleLogin,
+);
 
 /**
  * @swagger

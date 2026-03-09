@@ -72,8 +72,9 @@ export class Donation {
   @JoinColumn({ name: 'donorId' })
   donor: User;
 
-  @Column({ nullable: true })
-  donorName: string;
+  // This column is not used, because user id can get the name and isAnoymous can determine whether to show the name or not
+  // @Column({ nullable: true })
+  // donorName: string;
 
   @Column({ nullable: true, type: 'jsonb' })
   paymentMetadata: Record<string, unknown>;

@@ -63,7 +63,7 @@ export class CampaignService {
     return request;
   }
 
-  async updateCampaignRequest(requestId: string, creatorId: string, dto: UpdateCampaignRequestDto) {
+  async updateCampaignRequest(requestId: string, creatorId: string, dto: UpdateCampaignRequestDto & { thumbnailUrl?: string; mediaUrls?: string[]; proofDocuments?: string[] }) {
     const request = await CampaignRequestRepository.findOne({
       where: { id: requestId, requesterId: creatorId },
     });
@@ -78,6 +78,9 @@ export class CampaignService {
     if (dto.goalAmount !== undefined) request.goalAmount = dto.goalAmount;
     if (dto.deadline !== undefined) request.deadline = new Date(dto.deadline);
     if (dto.category !== undefined) request.category = dto.category;
+    if (dto.thumbnailUrl !== undefined) request.thumbnailUrl = dto.thumbnailUrl;
+    if (dto.mediaUrls !== undefined) request.mediaUrls = dto.mediaUrls;
+    if (dto.proofDocuments !== undefined) request.proofDocuments = dto.proofDocuments;
 
     await CampaignRequestRepository.save(request);
     return request;

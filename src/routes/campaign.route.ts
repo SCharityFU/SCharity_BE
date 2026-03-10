@@ -2,8 +2,8 @@ import { Router } from 'express';
 import { campaignController } from '../controllers/campaign.controller';
 import { donationController } from '../controllers/donation.controller';
 import { authenticate, optionalAuthenticate } from '../middlewares/auth.middleware';
-import { validate, validateQuery } from '../middlewares/validate.middleware';
-import { uploadMultiple, uploadCampaignFiles } from '../middlewares/upload.middleware';
+import { parseMultipartBody, validate, validateQuery } from '../middlewares/validate.middleware';
+import { uploadCampaignFiles, uploadMultiple } from '../middlewares/upload.middleware';
 import {
   createCampaignRequestSchema,
   updateCampaignSchema,
@@ -77,7 +77,7 @@ const router = Router();
  *       422:
  *         description: Validation error
  */
-router.post('/requests', authenticate, uploadMultiple, parseMultipartBody, validate(createCampaignRequestSchema), campaignController.submitRequest);
+router.post('/requests', authenticate, uploadCampaignFiles, parseMultipartBody, validate(createCampaignRequestSchema), campaignController.submitRequest);
 
 /**
  * @swagger
@@ -194,7 +194,7 @@ router.put('/requests/:requestId/bank-info', authenticate, validate(updateBankIn
  * /campaigns/requests/{requestId}:
  *   put:
  *     summary: Update a campaign request (owner only, pending status)
- *     description: Allows updating title, story, goalAmount, deadline, category, and bankInfo of a pending request.
+ *     description: Allows updating title, story, goalAmount, deadline, category of a pending request. Supports multipart/form-data for file uploads.
  *     tags: [Campaigns]
  *     security:
  *       - bearerAuth: []
@@ -209,7 +209,7 @@ router.put('/requests/:requestId/bank-info', authenticate, validate(updateBankIn
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             properties:
@@ -229,6 +229,22 @@ router.put('/requests/:requestId/bank-info', authenticate, validate(updateBankIn
  *               category:
  *                 type: string
  *                 enum: [education, medical, disaster, community, environment, other]
+ *               thumbnail:
+ *                 type: string
+ *                 format: binary
+ *                 description: Campaign thumbnail image (max 1)
+ *               media:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *                 description: Campaign media images (max 5)
+ *               proofDocuments:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *                 description: Proof documents - images or PDFs (max 5)
  *     responses:
  *       200:
  *         description: Campaign request updated
@@ -248,7 +264,7 @@ router.put('/requests/:requestId/bank-info', authenticate, validate(updateBankIn
  *       422:
  *         description: Validation error
  */
-router.put('/requests/:requestId', authenticate, validate(updateCampaignRequestSchema), campaignController.updateCampaignRequest);
+router.put('/requests/:requestId', authenticate, uploadCampaignFiles, parseMultipartBody, validate(updateCampaignRequestSchema), campaignController.updateCampaignRequest);
 
 /**
  * @swagger

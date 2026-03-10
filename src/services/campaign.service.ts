@@ -107,12 +107,16 @@ export class CampaignService {
     return CampaignRepository.findOne({ where: { id } });
   }
 
-  async closeCampaign(id: string, creatorId: string) {
+  async closeCampaign(id: string, userId: string) {
     const campaign = await CampaignRepository.findOne({
-      where: { id, creatorId },
+      where: { id },
       relations: ['creator'],
     });
     if (!campaign) throw new NotFoundError('Campaign not found');
+
+    if (campaign.creatorId !== userId) {
+      throw new ForbiddenError('You are not the creator of this campaign');
+    }
 
     if (!campaign.canClose) {
       throw new BadRequestError(

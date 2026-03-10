@@ -59,7 +59,7 @@ const router = Router();
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post('/register', authRateLimiter, validate(registerSchema), authController.register);
+router.post('/register', validate(registerSchema), authController.register);
 
 /**
  * @swagger
@@ -92,7 +92,7 @@ router.post('/register', authRateLimiter, validate(registerSchema), authControll
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post('/login', authRateLimiter, validate(loginSchema), authController.login);
+router.post('/login', validate(loginSchema), authController.login);
 
 /**
  * @swagger
@@ -124,7 +124,6 @@ router.post('/login', authRateLimiter, validate(loginSchema), authController.log
  */
 router.post(
   '/google-login',
-  authRateLimiter,
   validate(googleLoginSchema),
   authController.googleLogin,
 );
@@ -192,7 +191,6 @@ router.post('/logout', authenticate, authController.logout);
  */
 router.post(
   '/forgot-password',
-  authRateLimiter,
   validate(forgotPasswordSchema),
   authController.forgotPassword,
 );
@@ -217,7 +215,6 @@ router.post(
  */
 router.post(
   '/reset-password',
-  authRateLimiter,
   validate(resetPasswordSchema),
   authController.resetPassword,
 );

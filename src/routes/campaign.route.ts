@@ -7,6 +7,7 @@ import { uploadMultiple, uploadCampaignFiles } from '../middlewares/upload.middl
 import {
   createCampaignRequestSchema,
   updateCampaignSchema,
+  updateCampaignRequestSchema,
   campaignQuerySchema,
   createCampaignUpdateSchema,
   updateBankInfoSchema,
@@ -187,6 +188,67 @@ router.get('/requests/mine/:requestId', authenticate, campaignController.getMyRe
  *         description: Validation error
  */
 router.put('/requests/:requestId/bank-info', authenticate, validate(updateBankInfoSchema), campaignController.updateRequestBankInfo);
+
+/**
+ * @swagger
+ * /campaigns/requests/{requestId}:
+ *   put:
+ *     summary: Update a campaign request (owner only, pending status)
+ *     description: Allows updating title, story, goalAmount, deadline, category, and bankInfo of a pending request.
+ *     tags: [Campaigns]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: requestId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Campaign request ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 minLength: 5
+ *                 maxLength: 100
+ *               story:
+ *                 type: string
+ *                 minLength: 50
+ *               goalAmount:
+ *                 type: number
+ *                 minimum: 1000000
+ *               deadline:
+ *                 type: string
+ *                 format: date-time
+ *               category:
+ *                 type: string
+ *                 enum: [education, medical, disaster, community, environment, other]
+ *     responses:
+ *       200:
+ *         description: Campaign request updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       $ref: '#/components/schemas/CampaignRequest'
+ *       403:
+ *         description: Request is not in pending status
+ *       404:
+ *         description: Campaign request not found
+ *       422:
+ *         description: Validation error
+ */
+router.put('/requests/:requestId', authenticate, validate(updateCampaignRequestSchema), campaignController.updateCampaignRequest);
 
 /**
  * @swagger

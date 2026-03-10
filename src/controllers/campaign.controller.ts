@@ -117,6 +117,20 @@ export const campaignController = {
     }
   },
 
+  // CampaignCreator: update campaign request (pending only)
+  async updateCampaignRequest(req: Request, res: Response, next: NextFunction) {
+    try {
+      const request = await campaignService.updateCampaignRequest(
+        req.params.requestId,
+        req.user!.id,
+        req.body,
+      );
+      sendSuccess(res, request, 'Campaign request updated successfully');
+    } catch (err) {
+      next(err);
+    }
+  },
+
   // CampaignCreator: get my campaigns
   async getMyCampaigns(req: Request, res: Response, next: NextFunction) {
     try {

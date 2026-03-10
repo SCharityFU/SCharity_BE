@@ -77,6 +77,21 @@ export const updateCampaignSchema = z.object({
   thumbnailUrl: z.string().url().optional(),
 });
 
+export const updateCampaignRequestSchema = z.object({
+  title: z.string().min(5, 'Title must be at least 5 characters').max(100, 'Title is too long').optional(),
+  story: z.string().min(50, 'Story must be at least 50 characters').optional(),
+  goalAmount: z
+    .union([z.number(), z.string().transform((v) => Number(v))])
+    .pipe(z.number().positive('Goal amount must be positive').min(1000000, 'Minimum goal amount is 1,000,000 VND'))
+    .optional(),
+  deadline: z
+    .string()
+    .datetime()
+    .refine((d) => new Date(d) > new Date(), { message: 'Deadline must be in the future' })
+    .optional(),
+  category: z.nativeEnum(CampaignCategory).optional()
+});
+
 export const suspendCampaignSchema = z.object({
   reason: z.string().min(10, 'Reason must be at least 10 characters'),
 });
@@ -116,6 +131,7 @@ export const createCampaignUpdateSchema = z.object({
 export type CreateCampaignRequestDto = z.infer<typeof createCampaignRequestSchema>;
 export type ReviewCampaignRequestDto = z.infer<typeof reviewCampaignRequestSchema>;
 export type UpdateCampaignDto = z.infer<typeof updateCampaignSchema>;
+export type UpdateCampaignRequestDto = z.infer<typeof updateCampaignRequestSchema>;
 export type SuspendCampaignDto = z.infer<typeof suspendCampaignSchema>;
 export type CampaignQueryDto = z.infer<typeof campaignQuerySchema>;
 export type CreateCampaignUpdateDto = z.infer<typeof createCampaignUpdateSchema>;

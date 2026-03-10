@@ -13,6 +13,7 @@ import {
   CampaignQueryDto,
   CreateCampaignUpdateDto,
   UpdateBankInfoDto,
+  UpdateCampaignRequestDto,
 } from '../validators/campaign.validator';
 import { emailQueue } from '../queues/email.queue';
 import redisClient from '../config/redis';
@@ -59,6 +60,26 @@ export class CampaignService {
       where: { id: requestId, requesterId: creatorId },
     });
     if (!request) throw new NotFoundError('Campaign request not found');
+    return request;
+  }
+
+  async updateCampaignRequest(requestId: string, creatorId: string, dto: UpdateCampaignRequestDto) {
+    const request = await CampaignRequestRepository.findOne({
+      where: { id: requestId, requesterId: creatorId },
+    });
+    if (!request) throw new NotFoundError('Campaign request not found');
+
+    if (request.status !== 'pending') {
+      throw new ForbiddenError('Campaign request can only be updated when in pending status');
+    }
+
+    if (dto.title !== undefined) request.title = dto.title;
+    if (dto.story !== undefined) request.story = dto.story;
+    if (dto.goalAmount !== undefined) request.goalAmount = dto.goalAmount;
+    if (dto.deadline !== undefined) request.deadline = new Date(dto.deadline);
+    if (dto.category !== undefined) request.category = dto.category;
+
+    await CampaignRequestRepository.save(request);
     return request;
   }
 

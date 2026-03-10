@@ -5,6 +5,7 @@ import { authenticate, optionalAuthenticate } from '../middlewares/auth.middlewa
 import { validate, validateQuery } from '../middlewares/validate.middleware';
 import { uploadMultiple, uploadCampaignFiles } from '../middlewares/upload.middleware';
 import {
+  createCampaignRequestSchema,
   updateCampaignSchema,
   campaignQuerySchema,
   createCampaignUpdateSchema,
@@ -41,12 +42,22 @@ const router = Router();
  *               - $ref: '#/components/schemas/CreateCampaignRequest'
  *               - type: object
  *                 properties:
- *                   files:
+ *                   thumbnail:
+ *                     type: string
+ *                     format: binary
+ *                     description: Campaign thumbnail image (max 1)
+ *                   media:
  *                     type: array
  *                     items:
  *                       type: string
  *                       format: binary
- *                     description: Thumbnail, media and proof documents
+ *                     description: Campaign media images (max 5)
+ *                   proofDocuments:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                       format: binary
+ *                     description: Proof documents - images or PDFs (max 5)
  *     responses:
  *       201:
  *         description: Request submitted and pending admin review
@@ -64,7 +75,7 @@ const router = Router();
  *       422:
  *         description: Validation error
  */
-router.post('/requests', authenticate, uploadCampaignFiles, campaignController.submitRequest);
+router.post('/requests', authenticate, uploadCampaignFiles, validate(createCampaignRequestSchema), campaignController.submitRequest);
 
 /**
  * @swagger

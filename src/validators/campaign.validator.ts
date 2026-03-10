@@ -6,9 +6,10 @@ export const createCampaignRequestSchema = z.object({
   title: z.string().min(5, 'Title must be at least 5 characters').max(100, 'Title is too long'),
   story: z.string().min(50, 'Story must be at least 50 characters'),
   goalAmount: z
-    .number()
-    .positive('Goal amount must be positive')
-    .min(1000000, 'Minimum goal amount is 1,000,000 VND'),
+    .union([z.number(), z.string().transform((v) => Number(v))])
+    .pipe(
+      z.number().positive('Goal amount must be positive').min(1000000, 'Minimum goal amount is 1,000,000 VND'),
+    ),
   deadline: z
     .string()
     .datetime()
@@ -16,14 +17,18 @@ export const createCampaignRequestSchema = z.object({
       message: 'Deadline must be in the future',
     }),
   category: z.nativeEnum(CampaignCategory).optional().default(CampaignCategory.OTHER),
-  bankInfo: z.object({
-    bankName: z.string().min(1, 'Bank name is required'),
-    accountNumber: z
-      .string()
-      .min(1, 'Account number is required')
-      .regex(/^\d+$/, 'Account number must contain only digits'),
-    accountHolderName: z.string().min(1, 'Account holder name is required').toUpperCase(),
-  }),
+  bankInfo: z
+    .union([z.string().transform((v) => JSON.parse(v)), z.object({})])
+    .pipe(
+      z.object({
+        bankName: z.string().min(1, 'Bank name is required'),
+        accountNumber: z
+          .string()
+          .min(1, 'Account number is required')
+          .regex(/^\d+$/, 'Account number must contain only digits'),
+        accountHolderName: z.string().min(1, 'Account holder name is required').toUpperCase(),
+      }),
+    ),
 });
 
 export const reviewCampaignRequestSchema = z

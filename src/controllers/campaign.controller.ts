@@ -68,7 +68,10 @@ export const campaignController = {
         );
         proofDocuments.push(url);
       }
-
+    // var url =  "https://www.pinterest.com/pin/182044009932036861/";
+    // thumbnailUrl = url;
+    // mediaUrls.push(url);
+    // proofDocuments.push(url);
       const request = await campaignService.createRequest(
         { ...req.body, thumbnailUrl, mediaUrls, proofDocuments },
         req.user!.id,

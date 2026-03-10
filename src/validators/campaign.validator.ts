@@ -17,18 +17,22 @@ export const createCampaignRequestSchema = z.object({
       message: 'Deadline must be in the future',
     }),
   category: z.nativeEnum(CampaignCategory).optional().default(CampaignCategory.OTHER),
-  bankInfo: z
-    .union([z.string().transform((v) => JSON.parse(v)), z.object({})])
-    .pipe(
-      z.object({
-        bankName: z.string().min(1, 'Bank name is required'),
-        accountNumber: z
-          .string()
-          .min(1, 'Account number is required')
-          .regex(/^\d+$/, 'Account number must contain only digits'),
-        accountHolderName: z.string().min(1, 'Account holder name is required').toUpperCase(),
-      }),
-    ),
+  bankInfo: z.preprocess(
+    (val) => {
+      if (typeof val === 'string') {
+        try { return JSON.parse(val); } catch { return val; }
+      }
+      return val;
+    },
+    z.object({
+      bankName: z.string().min(1, 'Bank name is required'),
+      accountNumber: z
+        .string()
+        .min(1, 'Account number is required')
+        .regex(/^\d+$/, 'Account number must contain only digits'),
+      accountHolderName: z.string().min(1, 'Account holder name is required').toUpperCase(),
+    }),
+  ),
 });
 
 export const reviewCampaignRequestSchema = z

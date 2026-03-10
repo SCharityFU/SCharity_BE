@@ -19,7 +19,6 @@ export const addBankAccountSchema = z.object({
 });
 
 export const reportCampaignSchema = z.object({
-  campaignId: z.string().uuid('Invalid campaign ID'),
   reason: z.enum(['false_information', 'fake_image', 'no_update', 'fraud', 'other']),
   description: z
     .string()

@@ -17,6 +17,19 @@ export interface BankAccountResponseDto {
   updatedAt: Date;
 }
 
+/** Brief DTO returned to the user who created the report (no relations). */
+export interface ReportBriefDto {
+  id: string;
+  reason: ReportReason;
+  description: string | null;
+  evidenceUrls: string[] | null;
+  status: ReportStatus;
+  campaignId: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/** Full DTO returned to admins (includes sanitised relations). */
 export interface ReportResponseDto {
   id: string;
   reason: ReportReason;

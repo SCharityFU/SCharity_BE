@@ -5,6 +5,7 @@ import {
 } from '../repositories/campaign.repository';
 import { DonationRepository } from '../repositories/donation.repository';
 import { ReportRepository } from '../repositories/report.repository';
+import { toReportBriefDto } from '../utils/dto-mapper';
 import { CampaignStatus } from '../entities/Campaign';
 import { NotFoundError, BadRequestError, ForbiddenError, ConflictError } from '../utils/errors';
 import {
@@ -247,7 +248,7 @@ export class CampaignService {
     // Increment report count
     await CampaignRepository.increment({ id: campaignId }, 'reportCount', 1);
 
-    return report;
+    return toReportBriefDto(report);
   }
 
   async getMyCampaigns(creatorId: string, page: number, limit: number) {

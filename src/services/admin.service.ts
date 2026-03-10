@@ -3,6 +3,7 @@ import { DonationRepository } from '../repositories/donation.repository';
 import { WithdrawRepository } from '../repositories/withdraw.repository';
 import { UserRepository } from '../repositories/user.repository';
 import { ReportRepository } from '../repositories/report.repository';
+import { toReportDetailDto } from '../utils/dto-mapper';
 import { Campaign, CampaignStatus } from '../entities/Campaign';
 import { CampaignRequestStatus } from '../entities/CampaignRequest';
 import { WithdrawStatus } from '../entities/WithdrawRequest';
@@ -300,11 +301,15 @@ export class AdminService {
   }
 
   async listReports(page: number, limit: number, status?: ReportStatus) {
-    return ReportRepository.findWithPagination(page, limit, status);
+    const [reports, total] = await ReportRepository.findWithPagination(page, limit, status);
+    return [reports.map(toReportDetailDto), total] as const;
   }
 
   async resolveReport(id: string, adminId: string) {
-    const report = await ReportRepository.findOne({ where: { id } });
+    const report = await ReportRepository.findOne({
+      where: { id },
+      relations: ['campaign', 'reporter', 'resolvedBy'],
+    });
     if (!report) throw new NotFoundError('Report not found');
 
     report.status = ReportStatus.RESOLVED;
@@ -312,7 +317,13 @@ export class AdminService {
     report.resolvedAt = new Date();
     await ReportRepository.save(report);
 
-    return report;
+    // Reload to get resolvedBy relation
+    const saved = await ReportRepository.findOne({
+      where: { id },
+      relations: ['campaign', 'reporter', 'resolvedBy'],
+    });
+
+    return toReportDetailDto(saved!);
   }
 
   async listAllTransactions(

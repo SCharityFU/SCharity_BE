@@ -3,7 +3,7 @@ import { campaignController } from '../controllers/campaign.controller';
 import { donationController } from '../controllers/donation.controller';
 import { authenticate, optionalAuthenticate } from '../middlewares/auth.middleware';
 import { validate, validateQuery } from '../middlewares/validate.middleware';
-import { uploadMultiple } from '../middlewares/upload.middleware';
+import { uploadMultiple, uploadCampaignFiles } from '../middlewares/upload.middleware';
 import {
   updateCampaignSchema,
   campaignQuerySchema,
@@ -64,7 +64,7 @@ const router = Router();
  *       422:
  *         description: Validation error
  */
-router.post('/requests', authenticate, uploadMultiple, campaignController.submitRequest);
+router.post('/requests', authenticate, uploadCampaignFiles, campaignController.submitRequest);
 
 /**
  * @swagger

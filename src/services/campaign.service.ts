@@ -191,6 +191,7 @@ export class CampaignService {
 
     const update = CampaignUpdateRepository.create({
       ...dto,
+      isDraft: dto.isDraft === 'true',
       campaignId,
       creatorId,
       mediaUrls,

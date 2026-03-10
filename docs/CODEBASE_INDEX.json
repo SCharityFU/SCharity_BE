@@ -1,0 +1,211 @@
+{
+  "project": {
+    "name": "SCharity Backend",
+    "lastIndexed": "2026-03-10",
+    "entrypoint": "src/app.ts",
+    "apiPrefix": "/api/v1",
+    "healthEndpoint": "/health",
+    "swaggerEndpoint": "/api-docs"
+  },
+  "techStack": {
+    "runtime": ["Node.js", "TypeScript"],
+    "framework": "Express",
+    "orm": "TypeORM",
+    "database": "PostgreSQL",
+    "auth": ["JWT", "Passport", "Google OAuth"],
+    "cacheQueue": ["Redis", "BullMQ"],
+    "storage": ["AWS S3", "multer", "multer-s3"],
+    "apiDocs": "Swagger"
+  },
+  "workspace": {
+    "rootFiles": [
+      "Dockerfile",
+      "docker-compose.yml",
+      "package.json",
+      "tsconfig.json"
+    ],
+    "rootDirs": ["docs", "nginx", "src"]
+  },
+  "routes": {
+    "auth": {
+      "mount": "/auth",
+      "file": "src/routes/auth.route.ts",
+      "endpoints": [
+        { "method": "POST", "path": "/auth/register" },
+        { "method": "POST", "path": "/auth/login" },
+        { "method": "POST", "path": "/auth/google-login" },
+        { "method": "POST", "path": "/auth/refresh-token" },
+        { "method": "POST", "path": "/auth/logout" },
+        { "method": "POST", "path": "/auth/forgot-password" },
+        { "method": "POST", "path": "/auth/reset-password" },
+        { "method": "GET", "path": "/auth/verify-email" },
+        { "method": "GET", "path": "/auth/me" },
+        { "method": "POST", "path": "/auth/change-password" },
+        { "method": "GET", "path": "/auth/google" },
+        { "method": "GET", "path": "/auth/google/callback" }
+      ]
+    },
+    "admin": {
+      "mount": "/admin",
+      "file": "src/routes/admin.route.ts",
+      "endpoints": [
+        { "method": "GET", "path": "/admin/dashboard" },
+        { "method": "GET", "path": "/admin/dashboard/chart" },
+        { "method": "GET", "path": "/admin/campaign-requests" },
+        { "method": "GET", "path": "/admin/campaign-requests/:id" },
+        { "method": "POST", "path": "/admin/campaign-requests/:id/review" },
+        { "method": "GET", "path": "/admin/campaigns" },
+        { "method": "GET", "path": "/admin/campaigns/:id" },
+        { "method": "PUT", "path": "/admin/campaigns/:id/suspend" },
+        { "method": "PUT", "path": "/admin/campaigns/:id/unsuspend" },
+        { "method": "GET", "path": "/admin/campaigns/:id/transactions" },
+        { "method": "GET", "path": "/admin/withdraw-requests" },
+        { "method": "GET", "path": "/admin/withdraw-requests/:id" },
+        { "method": "POST", "path": "/admin/withdraw-requests/:id/process" },
+        { "method": "GET", "path": "/admin/reports" },
+        { "method": "PUT", "path": "/admin/reports/:id/resolve" },
+        { "method": "GET", "path": "/admin/transactions" }
+      ]
+    },
+    "campaigns": {
+      "mount": "/campaigns",
+      "file": "src/routes/campaign.route.ts",
+      "endpoints": [
+        { "method": "POST", "path": "/campaigns/requests" },
+        { "method": "GET", "path": "/campaigns/requests/mine" },
+        { "method": "GET", "path": "/campaigns/mine" },
+        { "method": "GET", "path": "/campaigns" },
+        { "method": "GET", "path": "/campaigns/:id" },
+        { "method": "GET", "path": "/campaigns/:id/updates" },
+        { "method": "GET", "path": "/campaigns/:campaignId/donations" },
+        { "method": "GET", "path": "/campaigns/:campaignId/comments" },
+        { "method": "POST", "path": "/campaigns/:campaignId/comments" },
+        { "method": "DELETE", "path": "/campaigns/:campaignId/comments/:commentId" },
+        { "method": "POST", "path": "/campaigns/:campaignId/report" },
+        { "method": "PUT", "path": "/campaigns/:id" },
+        { "method": "POST", "path": "/campaigns/:id/close" },
+        { "method": "GET", "path": "/campaigns/:id/analytics" },
+        { "method": "POST", "path": "/campaigns/:id/updates" }
+      ]
+    },
+    "donations": {
+      "mount": "/donations",
+      "file": "src/routes/donation.route.ts",
+      "endpoints": [
+        { "method": "POST", "path": "/donations" },
+        { "method": "GET", "path": "/donations/me/history" },
+        { "method": "GET", "path": "/donations/:id" }
+      ]
+    },
+    "users": {
+      "mount": "/users",
+      "file": "src/routes/user.route.ts",
+      "endpoints": [
+        { "method": "GET", "path": "/users/me" },
+        { "method": "PUT", "path": "/users/me" },
+        { "method": "GET", "path": "/users/me/bank-accounts" },
+        { "method": "POST", "path": "/users/me/bank-accounts" },
+        { "method": "DELETE", "path": "/users/me/bank-accounts/:id" },
+        { "method": "PUT", "path": "/users/me/bank-accounts/:id/default" }
+      ]
+    },
+    "withdrawals": {
+      "mount": "/withdrawals",
+      "file": "src/routes/withdraw.route.ts",
+      "endpoints": [
+        { "method": "POST", "path": "/withdrawals" },
+        { "method": "GET", "path": "/withdrawals/mine" },
+        { "method": "GET", "path": "/withdrawals/:id" }
+      ]
+    }
+  },
+  "modules": {
+    "controllers": [
+      "src/controllers/admin.controller.ts",
+      "src/controllers/auth.controller.ts",
+      "src/controllers/campaign.controller.ts",
+      "src/controllers/donation.controller.ts",
+      "src/controllers/user.controller.ts",
+      "src/controllers/withdraw.controller.ts"
+    ],
+    "services": [
+      "src/services/admin.service.ts",
+      "src/services/auth.service.ts",
+      "src/services/cache.service.ts",
+      "src/services/campaign.service.ts",
+      "src/services/donation.service.ts",
+      "src/services/email.service.ts",
+      "src/services/storage.service.ts",
+      "src/services/user.service.ts",
+      "src/services/withdraw.service.ts"
+    ],
+    "repositories": [
+      "src/repositories/campaign.repository.ts",
+      "src/repositories/donation.repository.ts",
+      "src/repositories/report.repository.ts",
+      "src/repositories/user.repository.ts",
+      "src/repositories/withdraw.repository.ts"
+    ],
+    "entities": [
+      "src/entities/AuditLog.ts",
+      "src/entities/BankAccount.ts",
+      "src/entities/Campaign.ts",
+      "src/entities/CampaignRequest.ts",
+      "src/entities/CampaignUpdate.ts",
+      "src/entities/Comment.ts",
+      "src/entities/Donation.ts",
+      "src/entities/Report.ts",
+      "src/entities/User.ts",
+      "src/entities/WithdrawRequest.ts"
+    ],
+    "middlewares": [
+      "src/middlewares/auth.middleware.ts",
+      "src/middlewares/error.middleware.ts",
+      "src/middlewares/rateLimiter.middleware.ts",
+      "src/middlewares/role.middleware.ts",
+      "src/middlewares/upload.middleware.ts",
+      "src/middlewares/validate.middleware.ts"
+    ],
+    "validators": [
+      "src/validators/auth.validator.ts",
+      "src/validators/campaign.validator.ts",
+      "src/validators/donation.validator.ts",
+      "src/validators/user.validator.ts",
+      "src/validators/withdraw.validator.ts"
+    ],
+    "queues": [
+      "src/queues/email.queue.ts",
+      "src/queues/processors/email.processor.ts"
+    ],
+    "config": [
+      "src/config/database.ts",
+      "src/config/passport.ts",
+      "src/config/redis.ts",
+      "src/config/s3.ts",
+      "src/config/swagger.ts"
+    ],
+    "dto": {
+      "root": "src/dtos/index.ts",
+      "mapping": "src/dtos/DTO_USECASE_MAPPING.md",
+      "domains": ["admin", "auth", "campaign", "common", "donation", "user", "withdraw"]
+    },
+    "docs": [
+      "src/docs/components.ts",
+      "src/docs/entities.md",
+      "src/docs/ERD.mmd"
+    ]
+  },
+  "scripts": {
+    "dev": "npm run dev",
+    "build": "npm run build",
+    "start": "npm run start",
+    "lint": "npm run lint",
+    "lintFix": "npm run lint:fix",
+    "typeorm": "npm run typeorm"
+  },
+  "deployment": {
+    "dockerfile": "Dockerfile",
+    "compose": "docker-compose.yml",
+    "nginxConfig": "nginx/nginx.conf"
+  }
+}

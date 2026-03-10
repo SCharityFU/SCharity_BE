@@ -3,9 +3,10 @@ import {
   CampaignRequestRepository,
   CampaignUpdateRepository,
 } from '../repositories/campaign.repository';
-import { DonationRepository } from '../repositories/donation.repository';
+import { DonationRepository, CommentRepository } from '../repositories/donation.repository';
 import { ReportRepository } from '../repositories/report.repository';
 import { CampaignStatus } from '../entities/Campaign';
+import { DonationStatus } from '../entities/Donation';
 import { NotFoundError, BadRequestError, ForbiddenError, ConflictError } from '../utils/errors';
 import {
   CreateCampaignRequestDto,
@@ -75,7 +76,7 @@ export class CampaignService {
   }
 
   async getCampaignById(id: string) {
-    const cacheKey = `campaign:${id}`;
+    const cacheKey = `campaign:v2:${id}`;
     const cached = await redisClient.get(cacheKey);
     if (cached) return JSON.parse(cached);
 
@@ -84,6 +85,30 @@ export class CampaignService {
       relations: ['creator'],
     });
     if (!campaign) throw new NotFoundError('Campaign not found');
+
+    const [donations, updates, comments] = await Promise.all([
+      DonationRepository.find({
+        where: { campaignId: id, status: DonationStatus.SUCCESS },
+        relations: ['donor'],
+        order: { createdAt: 'DESC' },
+      }),
+      CampaignUpdateRepository.find({
+        where: { campaignId: id, isDraft: false },
+        relations: ['creator'],
+        order: { createdAt: 'DESC' },
+      }),
+      CommentRepository.find({
+        where: { campaignId: id },
+        relations: ['donor', 'donation'],
+        order: { createdAt: 'DESC' },
+      }),
+    ]);
+
+    Object.assign(campaign, {
+      donations,
+      updates,
+      comments,
+    });
 
     await redisClient.setex(cacheKey, CAMPAIGN_CACHE_TTL, JSON.stringify(campaign));
     return campaign;

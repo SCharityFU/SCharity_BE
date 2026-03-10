@@ -5,6 +5,10 @@ import { AddBankAccountDto } from '../validators/user.validator';
 import { storageService } from './storage.service';
 
 export class UserService {
+  async getActiveUserCount() {
+    return UserRepository.countActiveUsers();
+  }
+
   async getProfile(userId: string) {
     const user = await UserRepository.findByIdWithRelations(userId);
     if (!user) throw new NotFoundError('User not found');

@@ -30,7 +30,34 @@ export const createCampaignRequestSchema = z.object({
         .string()
         .min(1, 'Account number is required')
         .regex(/^\d+$/, 'Account number must contain only digits'),
-      accountHolderName: z.string().min(1, 'Account holder name is required').toUpperCase(),
+      accountHolderName: z
+        .string()
+        .min(1, 'Account holder name is required')
+        .regex(/^[A-Za-z\s]+$/, 'Account holder name must not contain diacritics or special characters')
+        .toUpperCase(),
+    }),
+  ),
+});
+
+export const updateBankInfoSchema = z.object({
+  bankInfo: z.preprocess(
+    (val) => {
+      if (typeof val === 'string') {
+        try { return JSON.parse(val); } catch { return val; }
+      }
+      return val;
+    },
+    z.object({
+      bankName: z.string().min(1, 'Bank name is required'),
+      accountNumber: z
+        .string()
+        .min(1, 'Account number is required')
+        .regex(/^\d+$/, 'Account number must contain only digits'),
+      accountHolderName: z
+        .string()
+        .min(1, 'Account holder name is required')
+        .regex(/^[A-Za-z\s]+$/, 'Account holder name must not contain diacritics or special characters')
+        .toUpperCase(),
     }),
   ),
 });
@@ -92,3 +119,4 @@ export type UpdateCampaignDto = z.infer<typeof updateCampaignSchema>;
 export type SuspendCampaignDto = z.infer<typeof suspendCampaignSchema>;
 export type CampaignQueryDto = z.infer<typeof campaignQuerySchema>;
 export type CreateCampaignUpdateDto = z.infer<typeof createCampaignUpdateSchema>;
+export type UpdateBankInfoDto = z.infer<typeof updateBankInfoSchema>;

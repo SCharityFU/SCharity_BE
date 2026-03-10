@@ -9,6 +9,7 @@ import {
   updateCampaignSchema,
   campaignQuerySchema,
   createCampaignUpdateSchema,
+  updateBankInfoSchema,
 } from '../validators/campaign.validator';
 import { createCommentSchema } from '../validators/donation.validator';
 import { reportCampaignSchema } from '../validators/user.validator';
@@ -106,6 +107,86 @@ router.post('/requests', authenticate, uploadMultiple, parseMultipartBody, valid
  *                       $ref: '#/components/schemas/PaginationMeta'
  */
 router.get('/requests/mine', authenticate, campaignController.getMyRequests);
+
+/**
+ * @swagger
+ * /campaigns/requests/mine/{requestId}:
+ *   get:
+ *     summary: Get a single campaign request by ID (owner only)
+ *     tags: [Campaigns]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: requestId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Campaign request ID
+ *     responses:
+ *       200:
+ *         description: Campaign request detail
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       $ref: '#/components/schemas/CampaignRequest'
+ *       404:
+ *         description: Campaign request not found
+ */
+router.get('/requests/mine/:requestId', authenticate, campaignController.getMyRequestById);
+
+/**
+ * @swagger
+ * /campaigns/requests/{requestId}/bank-info:
+ *   put:
+ *     summary: Update bank information for a campaign request (owner only, pending status)
+ *     tags: [Campaigns]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: requestId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Campaign request ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [bankInfo]
+ *             properties:
+ *               bankInfo:
+ *                 $ref: '#/components/schemas/BankInfo'
+ *     responses:
+ *       200:
+ *         description: Bank information updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       $ref: '#/components/schemas/CampaignRequest'
+ *       403:
+ *         description: Request is not in pending status
+ *       404:
+ *         description: Campaign request not found
+ *       422:
+ *         description: Validation error
+ */
+router.put('/requests/:requestId/bank-info', authenticate, validate(updateBankInfoSchema), campaignController.updateRequestBankInfo);
 
 /**
  * @swagger

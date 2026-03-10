@@ -93,6 +93,30 @@ export const campaignController = {
     }
   },
 
+  // CampaignCreator: get a single campaign request by ID (own)
+  async getMyRequestById(req: Request, res: Response, next: NextFunction) {
+    try {
+      const request = await campaignService.getMyRequestById(req.params.requestId, req.user!.id);
+      sendSuccess(res, request);
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // CampaignCreator: update bank info for a campaign request
+  async updateRequestBankInfo(req: Request, res: Response, next: NextFunction) {
+    try {
+      const request = await campaignService.updateRequestBankInfo(
+        req.params.requestId,
+        req.user!.id,
+        req.body,
+      );
+      sendSuccess(res, request, 'Bank information updated successfully');
+    } catch (err) {
+      next(err);
+    }
+  },
+
   // CampaignCreator: get my campaigns
   async getMyCampaigns(req: Request, res: Response, next: NextFunction) {
     try {

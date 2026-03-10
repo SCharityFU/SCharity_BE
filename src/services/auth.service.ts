@@ -7,6 +7,7 @@ import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '.
 import { ConflictError, UnauthorizedError, NotFoundError, BadRequestError } from '../utils/errors';
 import { RegisterDto, LoginDto } from '../validators/auth.validator';
 import { emailQueue } from '../queues/email.queue';
+import { emailService } from './email.service';
 import redisClient from '../config/redis';
 
 const REFRESH_TOKEN_TTL = 30 * 24 * 60 * 60; // 30 days in seconds
@@ -20,7 +21,7 @@ export class AuthService {
   ): Promise<{ user: Partial<User>; accessToken: string; refreshToken: string }> {
     const existingUser = await UserRepository.findByEmail(dto.email);
     if (existingUser) {
-      throw new ConflictError('Email already registered');
+      throw new ConflictError('Email này đã được đăng ký');
     }
 
     const hashedPassword = await bcrypt.hash(dto.password, SALT_ROUNDS);
@@ -36,12 +37,17 @@ export class AuthService {
 
     await UserRepository.save(user);
 
-    // Send verification email via queue
-    await emailQueue.add('sendVerificationEmail', {
-      email: user.email,
-      name: user.fullName,
-      token: verificationToken,
-    });
+    // Send verification email directly instead of queueing to avoid Redis timeout errors
+    try {
+      await emailService.sendVerificationEmail(
+        user.email,
+        user.fullName,
+        verificationToken
+      );
+    } catch (error) {
+      console.error("Failed to send verification email:", error);
+      // Registration successful even if email fails, user can request resend
+    }
 
     const tokens = this.generateTokens(user);
     await this.saveRefreshToken(user.id, tokens.refreshToken);
@@ -57,16 +63,35 @@ export class AuthService {
   ): Promise<{ user: Partial<User>; accessToken: string; refreshToken: string }> {
     const user = await UserRepository.findByEmailWithPassword(dto.email);
     if (!user) {
-      throw new UnauthorizedError('Invalid email or password');
+      throw new UnauthorizedError('Email hoặc mật khẩu không đúng');
     }
 
     if (!user.password) {
-      throw new UnauthorizedError('Please login with Google');
+      throw new UnauthorizedError('Tài khoản này đã được đăng ký bằng Google. Vui lòng đăng nhập lại bằng Google');
     }
 
     const isPasswordValid = await bcrypt.compare(dto.password, user.password);
     if (!isPasswordValid) {
-      throw new UnauthorizedError('Invalid email or password');
+      throw new UnauthorizedError('Email hoặc mật khẩu không đúng');
+    }
+
+    if (!user.isEmailVerified) {
+      // Resend verification email
+      const verificationToken = uuidv4();
+      user.emailVerificationToken = verificationToken;
+      await UserRepository.save(user);
+
+      try {
+        await emailService.sendVerificationEmail(
+          user.email,
+          user.fullName,
+          verificationToken
+        );
+      } catch (error) {
+        console.error("Failed to resend verification email:", error);
+      }
+
+      throw new UnauthorizedError('Tài khoản chưa được xác thực. Chúng tôi đã gửi lại email xác thực, vui lòng kiểm tra hộp thư của bạn.');
     }
 
     const tokens = this.generateTokens(user);
@@ -83,12 +108,12 @@ export class AuthService {
     const storedToken = await redisClient.get(`refresh_token:${payload.sub}`);
 
     if (!storedToken || storedToken !== token) {
-      throw new UnauthorizedError('Invalid refresh token');
+      throw new UnauthorizedError('Phiên đăng nhập không hợp lệ hoặc đã hết hạn');
     }
 
     const user = await UserRepository.findOne({ where: { id: payload.sub } });
     if (!user) {
-      throw new UnauthorizedError('User not found');
+      throw new UnauthorizedError('Không tìm thấy người dùng');
     }
 
     const tokens = this.generateTokens(user);
@@ -151,7 +176,7 @@ export class AuthService {
 
       const { data } = await oauth2.userinfo.get();
 
-      if (!data) throw new UnauthorizedError('Invalid Google token');
+      if (!data) throw new UnauthorizedError('Token Google không hợp lệ');
 
       const profile = {
         id: data.id || '',
@@ -163,7 +188,7 @@ export class AuthService {
       return this.googleLogin(profile);
     } catch (error) {
        console.error("Google Auth Error:", error);
-       throw new UnauthorizedError('Failed to verify Google token');
+       throw new UnauthorizedError('Xác thực token Google thất bại');
     }
   }
 
@@ -179,11 +204,15 @@ export class AuthService {
     user.passwordResetExpires = expires;
     await UserRepository.save(user);
 
-    await emailQueue.add('sendPasswordResetEmail', {
-      email: user.email,
-      name: user.fullName,
-      token: resetToken,
-    });
+    try {
+      await emailService.sendPasswordResetEmail(
+        user.email,
+        user.fullName,
+        resetToken
+      );
+    } catch (error) {
+      console.error("Failed to send reset password email:", error);
+    }
   }
 
   async resetPassword(token: string, newPassword: string): Promise<void> {
@@ -193,7 +222,7 @@ export class AuthService {
     });
 
     if (!user || !user.passwordResetExpires || user.passwordResetExpires < new Date()) {
-      throw new BadRequestError('Invalid or expired reset token');
+      throw new BadRequestError('Mã khôi phục không hợp lệ hoặc đã hết hạn');
     }
 
     user.password = await bcrypt.hash(newPassword, SALT_ROUNDS);
@@ -205,7 +234,7 @@ export class AuthService {
   async verifyEmail(token: string): Promise<void> {
     const user = await UserRepository.findOne({ where: { emailVerificationToken: token } });
     if (!user) {
-      throw new NotFoundError('Invalid verification token');
+      throw new NotFoundError('Mã xác thực không hợp lệ');
     }
 
     user.isEmailVerified = true;
@@ -223,13 +252,13 @@ export class AuthService {
       .where('user.id = :id', { id: userId })
       .getOne();
 
-    if (!user) throw new NotFoundError('User not found');
+    if (!user) throw new NotFoundError('Không tìm thấy người dùng');
     if (!user.password) {
-      throw new BadRequestError('Cannot change password for accounts using social login');
+      throw new BadRequestError('Không thể đổi mật khẩu cho tài khoản đăng nhập qua mạng xã hội');
     }
 
     const isValid = await bcrypt.compare(currentPassword, user.password);
-    if (!isValid) throw new UnauthorizedError('Current password is incorrect');
+    if (!isValid) throw new UnauthorizedError('Mật khẩu hiện tại không đúng');
 
     user.password = await bcrypt.hash(newPassword, SALT_ROUNDS);
     await UserRepository.save(user);

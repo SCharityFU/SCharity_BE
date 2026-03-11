@@ -13,6 +13,27 @@ import { updateUserProfileSchema, addBankAccountSchema } from '../validators/use
  */
 const router = Router();
 
+/**
+ * @swagger
+ * /users/active-count:
+ *   get:
+ *     summary: Get active user count
+ *     tags: [Users]
+ *     responses:
+ *       200:
+ *         description: Number of active users
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: number
+ */
+router.get('/active-count', userController.getActiveUserCount);
+
 // All user routes require authentication
 router.use(authenticate);
 

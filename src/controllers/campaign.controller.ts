@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { campaignService } from '../services/campaign.service';
 import { storageService } from '../services/storage.service';
+import { mapCampaignDetailDto } from '../dtos/campaign';
 import { sendSuccess, sendCreated, sendPaginated } from '../utils/response';
 import { getPaginationParams } from '../utils/pagination';
 
@@ -26,7 +27,7 @@ export const campaignController = {
   async getCampaign(req: Request, res: Response, next: NextFunction) {
     try {
       const campaign = await campaignService.getCampaignById(req.params.id);
-      sendSuccess(res, campaign);
+      sendSuccess(res, mapCampaignDetailDto(campaign));
     } catch (err) {
       next(err);
     }

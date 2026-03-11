@@ -5,6 +5,15 @@ import { storageService } from '../services/storage.service';
 import { sendSuccess, sendCreated, sendNoContent } from '../utils/response';
 
 export const userController = {
+  async getActiveUserCount(_req: Request, res: Response, next: NextFunction) {
+    try {
+      const count = await userService.getActiveUserCount();
+      sendSuccess(res, count, 'Active user count fetched');
+    } catch (err) {
+      next(err);
+    }
+  },
+
   async getProfile(req: Request, res: Response, next: NextFunction) {
     try {
       const user = await userService.getProfile(req.user!.id);

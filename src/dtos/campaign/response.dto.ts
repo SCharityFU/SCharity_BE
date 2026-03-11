@@ -1,8 +1,10 @@
 // ── Campaign Response DTOs ───────────────────────────────────────────────────
 
 import { CampaignStatus, CampaignCategory } from '../../entities/Campaign';
+import { DonationStatus, PaymentMethod } from '../../entities/Donation';
 import { CampaignRequestStatus } from '../../entities/CampaignRequest';
 import { UpdateCategory } from '../../entities/CampaignUpdate';
+import { DonationChartDataPointDto } from '../admin';
 import { UserPublicDto } from '../auth/response.dto';
 import type { DonationResponseDto } from '../donation/response.dto';
 
@@ -25,6 +27,32 @@ export interface CampaignDto {
   approvedAt: Date | null;
   donorCount: number;
   reportCount: number;
+  creatorId: string;
+  creator?: UserPublicDto;
+  createdAt: Date;
+  updatedAt: Date;
+}
+/**
+ * This one differ from the one above is that it does not have report count (Which should not be exposed to public)
+ */
+export interface PublicCampaignDto {
+  id: string;
+  title: string;
+  story: string;
+  goalAmount: number;
+  raisedAmount: number;
+  /** Computed: min(100, raisedAmount / goalAmount * 100) */
+  progressPercent: number;
+  deadline: Date;
+  status: CampaignStatus;
+  category: CampaignCategory;
+  thumbnailUrl: string | null;
+  mediaUrls: string[] | null;
+  suspendReason: string | null;
+  suspendedAt: Date | null;
+  closedAt: Date | null;
+  approvedAt: Date | null;
+  donorCount: number;
   creatorId: string;
   creator?: UserPublicDto;
   createdAt: Date;
@@ -74,11 +102,64 @@ export interface CampaignUpdateResponseDto {
   updatedAt: Date;
 }
 
-export interface DonationChartDataPointDto {
-  date: string;
+export interface CampaignDonationPublicDto {
+  id: string;
   amount: number;
-  count: number;
+  status: DonationStatus;
+  paymentMethod: PaymentMethod | null;
+  transactionRef: string | null;
+  message: string | null;
+  isAnonymous: boolean;
+  donorDisplayName: string;
+  bankName: string | null;
+  bankAccount: string | null;
+  campaignId: string;
+  donorId: string | null;
+  donor?: UserPublicDto;
+  paymentMetadata: Record<string, unknown> | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
+
+export interface CampaignCommentPublicDto {
+  id: string;
+  content: string;
+  emoji: string | null;
+  isAnonymous: boolean;
+  campaignId: string;
+  donorId: string;
+  donor?: UserPublicDto;
+  donationId: string | null;
+  donation?: {
+    id: string;
+    amount: number;
+    status: DonationStatus;
+    createdAt: Date;
+  };
+  isEdited: boolean;
+  editedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface PublicCampaignDetailResponseDto extends PublicCampaignDto {
+  donations: CampaignDonationPublicDto[];
+  updates: CampaignUpdateResponseDto[];
+  comments: CampaignCommentPublicDto[];
+}
+
+export interface CampaignDetailResponseDto extends CampaignDto {
+  donations: CampaignDonationPublicDto[];
+  updates: CampaignUpdateResponseDto[];
+  comments: CampaignCommentPublicDto[];
+}
+
+
+// export interface DonationChartDataPointDto {
+//   date: string;
+//   amount: number;
+//   count: number;
+// }
 
 export interface CampaignAnalyticsResponseDto {
   campaign: CampaignDto;

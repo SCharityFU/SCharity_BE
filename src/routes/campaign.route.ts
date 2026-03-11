@@ -64,7 +64,7 @@ const router = Router();
  *       422:
  *         description: Validation error
  */
-router.post('/requests', authenticate, uploadMultiple, campaignController.submitRequest);
+router.post('/requests', authenticate, uploadCampaignFiles, campaignController.submitRequest);
 
 /**
  * @swagger

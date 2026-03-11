@@ -84,4 +84,13 @@ export const userController = {
       next(err);
     }
   },
+
+  async verifyKyc(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await userService.verifyKyc(req.user!.id, req.body);
+      sendSuccess(res, result);
+    } catch (err) {
+      next(err);
+    }
+  },
 };

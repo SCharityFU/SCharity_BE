@@ -1,8 +1,9 @@
 import { UserRepository, BankAccountRepository } from '../repositories/user.repository';
-import { NotFoundError, ConflictError } from '../utils/errors';
+import { NotFoundError, ConflictError, BadRequestError } from '../utils/errors';
 import { UpdateUserProfileDto } from '../validators/user.validator';
-import { AddBankAccountDto } from '../validators/user.validator';
+import { AddBankAccountDto, VerifyKycDto } from '../validators/user.validator';
 import { storageService } from './storage.service';
+import { performKyc } from './vnptEkyc.service';
 
 export class UserService {
   async getActiveUserCount() {
@@ -78,6 +79,54 @@ export class UserService {
     await BankAccountRepository.update(accountId, { isDefault: true });
 
     return BankAccountRepository.findOne({ where: { id: accountId } });
+  }
+
+  async verifyKyc(userId: string, dto: VerifyKycDto) {
+    const user = await UserRepository.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundError('User not found');
+    if (user.isKycVerified) throw new ConflictError('User is already KYC verified');
+
+    // Call VNPT eKYC
+    const kycResult = await performKyc(dto);
+    
+    if (!kycResult.success) {
+      throw new BadRequestError(kycResult.message);
+    }
+
+    const FACE_MATCH_THRESHOLD = 85.0;
+    if (!kycResult.faceMatchScore || kycResult.faceMatchScore < FACE_MATCH_THRESHOLD) {
+      throw new BadRequestError(`Face match score ${kycResult.faceMatchScore}% is below threshold ${FACE_MATCH_THRESHOLD}%`);
+    }
+
+    // Process name without diacritics
+    const removeDiacritics = (input: string): string => {
+      return input
+        .replace(/đ/g, 'd')
+        .replace(/Đ/g, 'D')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+    };
+
+    const kycFullName = kycResult.fullName ? removeDiacritics(kycResult.fullName) : '';
+
+    // Face embedding from Python service would go here in the future
+    // Currently using dummy for saving logic
+    const dummyEmbedding = JSON.stringify(new Array(512).fill(0.5));
+    
+    await UserRepository.update(userId, {
+      isKycVerified: true,
+      kycFullName,
+      kycIdNumber: kycResult.idNumber,
+      faceEmbedding: dummyEmbedding
+    });
+
+    return {
+      success: true,
+      message: `KYC successful. Face match: ${kycResult.faceMatchScore}%`,
+      fullName: kycResult.fullName,
+      idNumber: kycResult.idNumber,
+      faceMatchScore: kycResult.faceMatchScore,
+    };
   }
 }
 

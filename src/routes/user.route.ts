@@ -3,7 +3,7 @@ import { userController } from '../controllers/user.controller';
 import { authenticate } from '../middlewares/auth.middleware';
 import { validate } from '../middlewares/validate.middleware';
 import { uploadImage } from '../middlewares/upload.middleware';
-import { updateUserProfileSchema, addBankAccountSchema } from '../validators/user.validator';
+import { updateUserProfileSchema, addBankAccountSchema, verifyKycSchema } from '../validators/user.validator';
 
 /**
  * @swagger
@@ -190,5 +190,43 @@ router.delete('/me/bank-accounts/:id', userController.deleteBankAccount);
  *         description: Not found
  */
 router.put('/me/bank-accounts/:id/default', userController.setDefaultBankAccount);
+
+/**
+ * @swagger
+ * /users/me/kyc:
+ *   post:
+ *     summary: Verify User Identity (eKYC) with VNPT API
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - frontImageBase64
+ *               - backImageBase64
+ *               - selfieImageBase64
+ *             properties:
+ *               frontImageBase64:
+ *                 type: string
+ *                 description: Base64 of front ID card
+ *               backImageBase64:
+ *                 type: string
+ *                 description: Base64 of back ID card
+ *               selfieImageBase64:
+ *                 type: string
+ *                 description: Base64 of selfie photo
+ *     responses:
+ *       200:
+ *         description: KYC successful
+ *       400:
+ *         description: KYC failed / face match too low
+ *       409:
+ *         description: User already verified
+ */
+router.post('/me/kyc', validate(verifyKycSchema), userController.verifyKyc);
 
 export default router;

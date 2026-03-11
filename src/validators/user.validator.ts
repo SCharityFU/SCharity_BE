@@ -22,7 +22,7 @@ export const reportCampaignSchema = z.object({
   reason: z.enum(['false_information', 'fake_image', 'no_update', 'fraud', 'other']),
   description: z
     .string()
-    .min(20, 'Description must be at least 20 characters')
+    .min(5, 'Description must be at least 5 characters')
     .max(2000)
     .optional(),
 });

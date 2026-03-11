@@ -18,20 +18,97 @@ async function sendMail(to: string, subject: string, html: string) {
 
 export const emailService = {
   async sendVerificationEmail(email: string, name: string, token: string) {
-    const link = `${process.env.FRONTEND_URL}/verify-email?token=${token}`;
+    const link = `${process.env.CLIENT_URL || 'http://localhost:3001'}/verify-email?token=${token}`;
     await sendMail(
       email,
-      'Verify your SCharity email',
-      `<p>Hi ${name},</p><p>Please verify your email by clicking <a href="${link}">here</a>.</p><p>This link expires in 24 hours.</p>`,
+      'Xác Thực Tài Khoản SCharity',
+      `
+      <!DOCTYPE html>
+      <html>
+      <head>
+          <style>
+              body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #fce7f3; margin: 0; padding: 40px 0; }
+              .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+              .header { background: linear-gradient(135deg, #f43f5e 0%, #8b5cf6 100%); padding: 40px 20px; text-align: center; }
+              .header img { width: 120px; margin-bottom: 20px; }
+              .header h1 { color: #ffffff; font-size: 28px; margin: 0; font-weight: 700; }
+              .content { padding: 40px 40px; text-align: center; }
+              .content h2 { color: #18181b; font-size: 24px; margin-top: 0; margin-bottom: 10px; font-weight: 700; }
+              .content p { color: #52525b; font-size: 16px; line-height: 1.6; margin-bottom: 30px; }
+              .button { display: inline-block; background: linear-gradient(135deg, #f43f5e 0%, #8b5cf6 100%); color: #ffffff; font-weight: bold; text-decoration: none; padding: 15px 35px; border-radius: 30px; font-size: 16px; transition: transform 0.2s; box-shadow: 0 4px 15px rgba(244, 63, 94, 0.3); }
+              .footer { padding: 30px 40px; background-color: #fafafa; text-align: center; border-top: 1px solid #f4f4f5; }
+              .footer p { color: #a1a1aa; font-size: 13px; margin: 0; line-height: 1.5; }
+              .footer a { color: #8b5cf6; text-decoration: none; }
+          </style>
+      </head>
+      <body>
+          <div class="container">
+              <div class="header">
+                  <!-- Optional: Replace with actual logo URL later if available -->
+                  <h1 style="font-size: 40px;">SCharity</h1>
+              </div>
+              <div class="content">
+                  <h2>Xác thực địa chỉ email</h2>
+                  <p style="font-weight: bold; color: #18181b;">Chào mừng ${name} đến với SCharity!</p>
+                  <p>Vui lòng nhấn vào nút bên dưới để xác nhận địa chỉ email của bạn và hoàn tất quá trình đăng ký tài khoản. Đường link này sẽ hết hạn trong vòng 24 giờ.</p>
+                  <a href="${link}" class="button" style="color: #ffffff;">Xác Nhận Email</a>
+                  <p style="margin-top: 30px; font-size: 14px; color: #a1a1aa;">Nếu bạn không tạo tài khoản trên SCharity, bạn có thể bỏ qua email này.</p>
+              </div>
+              <div class="footer">
+                  <p>Copyright © 2026, SCharity Platform</p>
+                  <p>Cùng nhau tạo nên những thay đổi tích cực.</p>
+              </div>
+          </div>
+      </body>
+      </html>
+      `
     );
   },
 
   async sendPasswordResetEmail(email: string, name: string, token: string) {
-    const link = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+    const link = `${process.env.CLIENT_URL || 'http://localhost:3001'}/reset-password?token=${token}`;
     await sendMail(
       email,
-      'Reset your SCharity password',
-      `<p>Hi ${name},</p><p>Click <a href="${link}">here</a> to reset your password. This link expires in 1 hour.</p><p>If you did not request this, please ignore this email.</p>`,
+      'Khôi Phục Mật Khẩu SCharity',
+      `
+      <!DOCTYPE html>
+      <html>
+      <head>
+          <style>
+              body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #fce7f3; margin: 0; padding: 40px 0; }
+              .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+              .header { background: linear-gradient(135deg, #f43f5e 0%, #8b5cf6 100%); padding: 40px 20px; text-align: center; }
+              .header img { width: 120px; margin-bottom: 20px; }
+              .header h1 { color: #ffffff; font-size: 28px; margin: 0; font-weight: 700; }
+              .content { padding: 40px 40px; text-align: center; }
+              .content h2 { color: #18181b; font-size: 24px; margin-top: 0; margin-bottom: 10px; font-weight: 700; }
+              .content p { color: #52525b; font-size: 16px; line-height: 1.6; margin-bottom: 30px; }
+              .button { display: inline-block; background: linear-gradient(135deg, #f43f5e 0%, #8b5cf6 100%); color: #ffffff; font-weight: bold; text-decoration: none; padding: 15px 35px; border-radius: 30px; font-size: 16px; transition: transform 0.2s; box-shadow: 0 4px 15px rgba(244, 63, 94, 0.3); }
+              .footer { padding: 30px 40px; background-color: #fafafa; text-align: center; border-top: 1px solid #f4f4f5; }
+              .footer p { color: #a1a1aa; font-size: 13px; margin: 0; line-height: 1.5; }
+              .footer a { color: #8b5cf6; text-decoration: none; }
+          </style>
+      </head>
+      <body>
+          <div class="container">
+              <div class="header">
+                  <h1>SCharity</h1>
+              </div>
+              <div class="content">
+                  <h2>Yêu cầu khôi phục mật khẩu</h2>
+                  <p style="font-weight: bold; color: #18181b;">Chào ${name},</p>
+                  <p>Chúng tôi nhận được yêu cầu khôi phục mật khẩu cho tài khoản của bạn trên SCharity. Vui lòng nhấn vào nút bên dưới để thiết lập mật khẩu mới.</p>
+                  <a href="${link}" class="button" style="color: #ffffff;">Đặt Lại Mật Khẩu</a>
+                  <p style="margin-top: 30px; font-size: 14px; color: #a1a1aa;">Đường dẫn này sẽ hết hạn trong 1 giờ.<br/>Nếu bạn không gửi yêu cầu này, xin vui lòng bỏ qua email.</p>
+              </div>
+              <div class="footer">
+                  <p>Copyright © 2026, SCharity Platform</p>
+                  <p>Cùng nhau tạo nên những thay đổi tích cực.</p>
+              </div>
+          </div>
+      </body>
+      </html>
+      `
     );
   },
 
@@ -129,7 +206,7 @@ export const emailService = {
     updateTitle: string,
     campaignId: string,
   ) {
-    const link = `${process.env.FRONTEND_URL}/campaigns/${campaignId}`;
+    const link = `${process.env.CLIENT_URL || 'http://localhost:3001'}/campaigns/${campaignId}`;
     await Promise.all(
       emails.map((email) =>
         sendMail(

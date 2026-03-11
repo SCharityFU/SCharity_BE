@@ -5,6 +5,7 @@ import {
 } from '../repositories/campaign.repository';
 import { DonationRepository, CommentRepository } from '../repositories/donation.repository';
 import { ReportRepository } from '../repositories/report.repository';
+import { toReportBriefDto } from '../utils/dto-mapper';
 import { CampaignStatus } from '../entities/Campaign';
 import { DonationStatus } from '../entities/Donation';
 import { NotFoundError, BadRequestError, ForbiddenError, ConflictError } from '../utils/errors';
@@ -215,6 +216,7 @@ export class CampaignService {
 
     const update = CampaignUpdateRepository.create({
       ...dto,
+      isDraft: dto.isDraft === 'true',
       campaignId,
       creatorId,
       mediaUrls,
@@ -272,7 +274,7 @@ export class CampaignService {
     // Increment report count
     await CampaignRepository.increment({ id: campaignId }, 'reportCount', 1);
 
-    return report;
+    return toReportBriefDto(report);
   }
 
   async getMyCampaigns(creatorId: string, page: number, limit: number) {

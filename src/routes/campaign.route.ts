@@ -4,6 +4,8 @@ import { donationController } from '../controllers/donation.controller';
 import { authenticate, optionalAuthenticate } from '../middlewares/auth.middleware';
 import { parseMultipartBody, validate, validateQuery } from '../middlewares/validate.middleware';
 import { uploadCampaignFiles, uploadMultiple } from '../middlewares/upload.middleware';
+import { validate, validateQuery } from '../middlewares/validate.middleware';
+import { uploadMultiple, uploadCampaignFiles, uploadEvidence } from '../middlewares/upload.middleware';
 import {
   createCampaignRequestSchema,
   updateCampaignSchema,
@@ -578,9 +580,18 @@ router.delete('/:campaignId/comments/:commentId', authenticate, donationControll
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
- *             $ref: '#/components/schemas/ReportCampaignRequest'
+ *             allOf:
+ *               - $ref: '#/components/schemas/ReportCampaignRequest'
+ *               - type: object
+ *                 properties:
+ *                   evidence:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                       format: binary
+ *                     description: Evidence images (max 5)
  *     responses:
  *       201:
  *         description: Report submitted
@@ -590,6 +601,7 @@ router.delete('/:campaignId/comments/:commentId', authenticate, donationControll
 router.post(
   '/:campaignId/report',
   authenticate,
+  uploadEvidence,
   validate(reportCampaignSchema),
   userController.reportCampaign,
 );

@@ -70,3 +70,9 @@ export const uploadCampaignFiles = multer({
   { name: 'media', maxCount: 10 },
   { name: 'proofDocuments', maxCount: 10 },
 ]);
+
+export const uploadEvidence = multer({
+  storage,
+  limits: { fileSize: MAX_FILE_SIZE, files: 5 },
+  fileFilter: imageFileFilter,
+}).array('evidence', 5);

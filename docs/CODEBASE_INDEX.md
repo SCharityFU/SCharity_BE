@@ -11,6 +11,15 @@ Last indexed: 2026-03-10
 - Storage: AWS S3 (multer + multer-s3)
 - API docs: Swagger (`/api-docs`)
 
+## Workspace Layout
+- `src/`: application source code
+- `docs/`: project-level documentation (including this index)
+- `nginx/`: reverse proxy config
+- `Dockerfile`: container image build definition
+- `docker-compose.yml`: local container orchestration
+- `package.json`: scripts and dependency manifest
+- `tsconfig.json`: TypeScript compiler configuration
+
 ## Entrypoint and App Wiring
 - Entrypoint: `src/app.ts`
 - Boot sequence:
@@ -193,6 +202,29 @@ Zod schemas in `src/validators`:
 - `user.validator.ts`
 - `withdraw.validator.ts`
 
+## DTO Layer
+DTO modules in `src/dtos` are organized by feature:
+- `admin/`
+- `auth/`
+- `campaign/`
+- `common/`
+- `donation/`
+- `user/`
+- `withdraw/`
+
+Supporting docs:
+- `src/dtos/DTO_USECASE_MAPPING.md`
+- `src/dtos/index.ts`
+
+## Architecture Docs
+Domain and API modeling references in `src/docs`:
+- `components.ts`
+- `entities.md`
+- `ERD.mmd`
+
+Project-level docs:
+- `docs/CODEBASE_INDEX.md`
+
 ## Utilities
 - `src/utils/errors.ts`: custom application error hierarchy
 - `src/utils/jwt.ts`: access/refresh token helpers
@@ -204,4 +236,10 @@ Zod schemas in `src/validators`:
 - Build: `npm run build`
 - Prod start: `npm run start`
 - Lint: `npm run lint`
+- Lint (auto-fix): `npm run lint:fix`
 - TypeORM CLI: `npm run typeorm`
+
+## Deployment and Runtime Config
+- Docker image: `Dockerfile`
+- Docker compose stack: `docker-compose.yml`
+- Nginx config: `nginx/nginx.conf`

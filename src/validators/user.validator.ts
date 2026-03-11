@@ -27,6 +27,13 @@ export const reportCampaignSchema = z.object({
     .optional(),
 });
 
+export const verifyKycSchema = z.object({
+  frontImageBase64: z.string().min(1, 'Front ID image is required'),
+  backImageBase64: z.string().min(1, 'Back ID image is required'),
+  selfieImageBase64: z.string().min(1, 'Selfie image is required'),
+});
+
 export type UpdateUserProfileDto = z.infer<typeof updateUserProfileSchema>;
 export type AddBankAccountDto = z.infer<typeof addBankAccountSchema>;
 export type ReportCampaignDto = z.infer<typeof reportCampaignSchema>;
+export type VerifyKycDto = z.infer<typeof verifyKycSchema>;

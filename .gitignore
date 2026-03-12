@@ -38,3 +38,6 @@ coverage/
 
 # BullMQ / Redis dump
 dump.rdb
+
+# Private files
+private/

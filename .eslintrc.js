@@ -23,7 +23,15 @@ module.exports = {
     '@typescript-eslint/explicit-module-boundary-types': 'off',
     '@typescript-eslint/no-explicit-any': 'warn',
     '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
-    'prettier/prettier': ['error', { singleQuote: true, trailingComma: 'all', printWidth: 100, "endOfLine": "auto" }],
+    'prettier/prettier': [
+      'error',
+      {
+        singleQuote: true,
+        trailingComma: 'all',
+        printWidth: 100,
+        endOfLine: 'auto',
+      },
+    ],
     'no-console': 'warn',
   },
 };

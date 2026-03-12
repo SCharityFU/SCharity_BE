@@ -37,7 +37,11 @@ export class Donation {
   @Column({ type: 'decimal', precision: 15, scale: 0 })
   amount: number;
 
-  @Column({ type: 'enum', enum: DonationStatus, default: DonationStatus.PENDING })
+  @Column({
+    type: 'enum',
+    enum: DonationStatus,
+    default: DonationStatus.PENDING,
+  })
   status: DonationStatus;
 
   @Column({ type: 'enum', enum: PaymentMethod, nullable: true })

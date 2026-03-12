@@ -1,9 +1,15 @@
-import { CampaignRepository, CampaignRequestRepository } from '../repositories/campaign.repository';
+import {
+  CampaignRepository,
+  CampaignRequestRepository,
+} from '../repositories/campaign.repository';
 import { DonationRepository } from '../repositories/donation.repository';
 import { WithdrawRepository } from '../repositories/withdraw.repository';
 import { UserRepository } from '../repositories/user.repository';
 import { ReportRepository } from '../repositories/report.repository';
-import { toReportDetailDto } from '../utils/dto-mapper';
+import {
+  toReportDetailDto,
+  toCampaignDonationAdminDto,
+} from '../utils/dto-mapper';
 import { Campaign, CampaignStatus } from '../entities/Campaign';
 import { CampaignRequestStatus } from '../entities/CampaignRequest';
 import { WithdrawStatus } from '../entities/WithdrawRequest';
@@ -59,11 +65,18 @@ export class AdminService {
     };
   }
 
-  async getDonationChartData(interval: 'day' | 'week' | 'month' = 'day', days = 30) {
+  async getDonationChartData(
+    interval: 'day' | 'week' | 'month' = 'day',
+    days = 30,
+  ) {
     return DonationRepository.getSystemChartData(interval, days);
   }
 
-  async listCampaignRequests(page: number, limit: number, status?: CampaignRequestStatus) {
+  async listCampaignRequests(
+    page: number,
+    limit: number,
+    status?: CampaignRequestStatus,
+  ) {
     const { skip } = getPaginationParams(page, limit);
     void skip;
     return CampaignRequestRepository.findWithPagination(page, limit, status);
@@ -115,7 +128,9 @@ export class AdminService {
       const savedCampaign = await CampaignRepository.save(campaign);
       request.campaignId = savedCampaign.id;
 
-      const requester = await UserRepository.findOne({ where: { id: request.requesterId } });
+      const requester = await UserRepository.findOne({
+        where: { id: request.requesterId },
+      });
       await emailQueue.add('sendCampaignApprovedEmail', {
         email: requester?.email,
         creatorName: requester?.fullName,
@@ -126,7 +141,9 @@ export class AdminService {
       request.status = CampaignRequestStatus.REJECTED;
       request.rejectReason = rejectReason;
 
-      const requester = await UserRepository.findOne({ where: { id: request.requesterId } });
+      const requester = await UserRepository.findOne({
+        where: { id: request.requesterId },
+      });
       await emailQueue.add('sendCampaignRejectedEmail', {
         email: requester?.email,
         creatorName: requester?.fullName,
@@ -139,7 +156,10 @@ export class AdminService {
 
     // Audit log
     await AuditLogRepository.save({
-      action: action === 'approve' ? AuditAction.CAMPAIGN_APPROVED : AuditAction.CAMPAIGN_REJECTED,
+      action:
+        action === 'approve'
+          ? AuditAction.CAMPAIGN_APPROVED
+          : AuditAction.CAMPAIGN_REJECTED,
       actorId: adminId,
       targetId: id,
       targetType: 'CampaignRequest',
@@ -158,7 +178,13 @@ export class AdminService {
       category?: string;
     },
   ) {
-    return CampaignRepository.findWithPagination(page, limit, filters, 'createdAt', 'DESC');
+    return CampaignRepository.findWithPagination(
+      page,
+      limit,
+      filters,
+      'createdAt',
+      'DESC',
+    );
   }
 
   async getCampaignDetails(id: string) {
@@ -186,8 +212,14 @@ export class AdminService {
     // Cancel pending withdraw requests
     await WithdrawRepository.createQueryBuilder()
       .update()
-      .set({ status: WithdrawStatus.REJECTED, rejectReason: 'Campaign suspended by admin' })
-      .where('campaignId = :id AND status = :status', { id, status: WithdrawStatus.PENDING })
+      .set({
+        status: WithdrawStatus.REJECTED,
+        rejectReason: 'Campaign suspended by admin',
+      })
+      .where('campaignId = :id AND status = :status', {
+        id,
+        status: WithdrawStatus.PENDING,
+      })
       .execute();
 
     await AuditLogRepository.save({
@@ -199,7 +231,9 @@ export class AdminService {
     });
 
     // Notify campaign creator
-    const creator = await UserRepository.findOne({ where: { id: campaign.creatorId } });
+    const creator = await UserRepository.findOne({
+      where: { id: campaign.creatorId },
+    });
     if (creator) {
       await emailQueue.add('sendCampaignSuspendedEmail', {
         email: creator.email,
@@ -236,8 +270,16 @@ export class AdminService {
     return campaign;
   }
 
-  async listWithdrawRequests(page: number, limit: number, status?: WithdrawStatus) {
-    return WithdrawRepository.findWithPagination(page, limit, status ? { status } : undefined);
+  async listWithdrawRequests(
+    page: number,
+    limit: number,
+    status?: WithdrawStatus,
+  ) {
+    return WithdrawRepository.findWithPagination(
+      page,
+      limit,
+      status ? { status } : undefined,
+    );
   }
 
   async processWithdrawRequest(
@@ -290,7 +332,10 @@ export class AdminService {
     await WithdrawRepository.save(request);
 
     await AuditLogRepository.save({
-      action: action === 'approve' ? AuditAction.WITHDRAW_APPROVED : AuditAction.WITHDRAW_REJECTED,
+      action:
+        action === 'approve'
+          ? AuditAction.WITHDRAW_APPROVED
+          : AuditAction.WITHDRAW_REJECTED,
       actorId: adminId,
       targetId: id,
       targetType: 'WithdrawRequest',
@@ -301,7 +346,11 @@ export class AdminService {
   }
 
   async listReports(page: number, limit: number, status?: ReportStatus) {
-    const [reports, total] = await ReportRepository.findWithPagination(page, limit, status);
+    const [reports, total] = await ReportRepository.findWithPagination(
+      page,
+      limit,
+      status,
+    );
     return [reports.map(toReportDetailDto), total] as const;
   }
 
@@ -332,7 +381,13 @@ export class AdminService {
     search?: string,
     sortOrder: 'ASC' | 'DESC' = 'DESC',
   ) {
-    return DonationRepository.findAllWithPagination(page, limit, search, sortOrder);
+    const [donations, total] = await DonationRepository.findAllWithPagination(
+      page,
+      limit,
+      search,
+      sortOrder,
+    );
+    return [donations.map(toCampaignDonationAdminDto), total] as const;
   }
 
   async getCampaignTransactions(
@@ -343,9 +398,20 @@ export class AdminService {
     sortBy = 'createdAt',
     sortOrder: 'ASC' | 'DESC' = 'DESC',
   ) {
-    const campaign = await CampaignRepository.findOne({ where: { id: campaignId } });
+    const campaign = await CampaignRepository.findOne({
+      where: { id: campaignId },
+    });
     if (!campaign) throw new NotFoundError('Campaign not found');
-    return DonationRepository.findByCampaignId(campaignId, page, limit, search, sortBy, sortOrder);
+
+    const [donations, total] = await DonationRepository.findByCampaignId(
+      campaignId,
+      page,
+      limit,
+      search,
+      sortBy,
+      sortOrder,
+    );
+    return [donations.map(toCampaignDonationAdminDto), total] as const;
   }
 
   async getWithdrawRequestById(id: string) {

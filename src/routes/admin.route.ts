@@ -300,7 +300,21 @@ router.put('/campaigns/:id/unsuspend', adminController.unsuspendCampaign);
  * @swagger
  * /admin/campaigns/{id}/transactions:
  *   get:
- *     summary: List transactions for a specific campaign (admin view)
+ *     summary: UC 2.1.6 – View donation list for a specific campaign (admin)
+ *     description: |
+ *       Returns a paginated, read-only list of **successful** donations for the
+ *       given campaign.
+ *
+ *       **Business rules enforced:**
+ *       - `donorDisplayName` is replaced with *"Nhà hảo tâm ẩn danh"* for
+ *         anonymous donations (immutable audit-trail; real identity stays in DB).
+ *       - `bankAccount` is masked – only the first 3 digits are shown and the
+ *         rest are replaced with `*` (e.g. `"123*******"`).
+ *       - No write operations are exposed; the response is a read-only projection.
+ *       - Only donations with `status = success` are included.
+ *
+ *       **Filter:** `search` matches against the donor's real full name (case-
+ *       insensitive). Anonymous donations are still searchable by admin.
  *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
@@ -312,37 +326,90 @@ router.put('/campaigns/:id/unsuspend', adminController.unsuspendCampaign);
  *         name: search
  *         schema:
  *           type: string
- *         description: Search by donor name
+ *         description: Filter by donor name (case-insensitive partial match)
  *       - in: query
  *         name: sortBy
  *         schema:
  *           type: string
  *           enum: [createdAt, amount]
  *           default: createdAt
+ *         description: Column to sort by
  *       - in: query
  *         name: sortOrder
  *         schema:
  *           type: string
  *           enum: [ASC, DESC]
  *           default: DESC
+ *         description: Sort direction
  *     responses:
  *       200:
- *         description: Paginated transaction list
+ *         description: Paginated campaign donation list
  *         content:
  *           application/json:
  *             schema:
- *               allOf:
- *                 - $ref: '#/components/schemas/SuccessResponse'
- *                 - type: object
- *                   properties:
- *                     data:
- *                       type: array
- *                       items:
- *                         $ref: '#/components/schemas/Donation'
- *                     pagination:
- *                       $ref: '#/components/schemas/PaginationMeta'
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Success
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                         format: uuid
+ *                       donorDisplayName:
+ *                         type: string
+ *                         description: >
+ *                           Real donor full name, or "Nhà hảo tâm ẩn danh"
+ *                           when isAnonymous is true.
+ *                         example: Nguyễn Văn A
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                         description: Transaction timestamp
+ *                       message:
+ *                         type: string
+ *                         nullable: true
+ *                         description: Optional message from the donor
+ *                       amount:
+ *                         type: number
+ *                         description: Donation amount in VND
+ *                         example: 500000
+ *                       bankName:
+ *                         type: string
+ *                         nullable: true
+ *                         description: Bank name used for the transfer
+ *                         example: Vietcombank
+ *                       bankAccount:
+ *                         type: string
+ *                         nullable: true
+ *                         description: >
+ *                           Masked bank account – only first 3 digits visible,
+ *                           remainder replaced with '*'.
+ *                         example: 123*******
+ *                       status:
+ *                         type: string
+ *                         enum: [pending, success, failed, refunded]
+ *                         example: success
+ *                 pagination:
+ *                   $ref: '#/components/schemas/PaginationMeta'
+ *       401:
+ *         description: Unauthorized – missing or invalid token
+ *       403:
+ *         description: Forbidden – caller is not an admin
+ *       404:
+ *         description: Campaign not found
  */
-router.get('/campaigns/:id/transactions', adminController.getCampaignTransactions);
+router.get(
+  '/campaigns/:id/transactions',
+  adminController.getCampaignTransactions,
+);
 
 /**
  * @swagger
@@ -493,7 +560,20 @@ router.put('/reports/:id/resolve', adminController.resolveReport);
  * @swagger
  * /admin/transactions:
  *   get:
- *     summary: List all transactions across the platform
+ *     summary: UC 2.1.8 – View all donations across the platform (admin)
+ *     description: |
+ *       Returns a paginated, read-only list of **all** donations platform-wide,
+ *       applying the same masking rules as the per-campaign donation view.
+ *
+ *       **Business rules enforced:**
+ *       - `donorDisplayName` is replaced with *"Nhà hảo tâm ẩn danh"* for
+ *         anonymous donations.
+ *       - `bankAccount` is masked – only the first 3 digits are shown and the
+ *         rest are replaced with `*` (e.g. `"123*******"`).
+ *       - No write operations are exposed; the response is a read-only projection.
+ *
+ *       **Filter:** `search` matches against the donor's real full name
+ *       (case-insensitive partial match).
  *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
@@ -504,29 +584,76 @@ router.put('/reports/:id/resolve', adminController.resolveReport);
  *         name: search
  *         schema:
  *           type: string
- *         description: Search by donor name
+ *         description: Filter by donor name (case-insensitive partial match)
  *       - in: query
  *         name: sortOrder
  *         schema:
  *           type: string
  *           enum: [ASC, DESC]
  *           default: DESC
+ *         description: Sort direction (by createdAt)
  *     responses:
  *       200:
- *         description: Paginated transaction list
+ *         description: Paginated donation list with masked sensitive fields
  *         content:
  *           application/json:
  *             schema:
- *               allOf:
- *                 - $ref: '#/components/schemas/SuccessResponse'
- *                 - type: object
- *                   properties:
- *                     data:
- *                       type: array
- *                       items:
- *                         $ref: '#/components/schemas/Donation'
- *                     pagination:
- *                       $ref: '#/components/schemas/PaginationMeta'
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Success
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                         format: uuid
+ *                       donorDisplayName:
+ *                         type: string
+ *                         description: >
+ *                           Real donor full name, or "Nhà hảo tâm ẩn danh"
+ *                           when isAnonymous is true.
+ *                         example: Trần Thị B
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                         description: Transaction timestamp
+ *                       message:
+ *                         type: string
+ *                         nullable: true
+ *                         description: Optional message from the donor
+ *                       amount:
+ *                         type: number
+ *                         description: Donation amount in VND
+ *                         example: 200000
+ *                       bankName:
+ *                         type: string
+ *                         nullable: true
+ *                         description: Bank name used for the transfer
+ *                         example: Techcombank
+ *                       bankAccount:
+ *                         type: string
+ *                         nullable: true
+ *                         description: >
+ *                           Masked bank account – only first 3 digits visible,
+ *                           remainder replaced with '*'.
+ *                         example: 098*******
+ *                       status:
+ *                         type: string
+ *                         enum: [pending, success, failed, refunded]
+ *                         example: success
+ *                 pagination:
+ *                   $ref: '#/components/schemas/PaginationMeta'
+ *       401:
+ *         description: Unauthorized – missing or invalid token
+ *       403:
+ *         description: Forbidden – caller is not an admin
  */
 router.get('/transactions', adminController.listAllTransactions);
 

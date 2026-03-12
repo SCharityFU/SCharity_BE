@@ -23,7 +23,8 @@ export const adminController = {
   async getDonationChartData(req: Request, res: Response, next: NextFunction) {
     try {
       const days = Number(req.query.days) || 30;
-      const interval = (req.query.interval as 'day' | 'week' | 'month') || 'day';
+      const interval =
+        (req.query.interval as 'day' | 'week' | 'month') || 'day';
       const data = await adminService.getDonationChartData(interval, days);
       sendSuccess(res, data);
     } catch (err) {
@@ -35,14 +36,22 @@ export const adminController = {
     try {
       const { page, limit } = getPages(req.query);
       const status = req.query.status as CampaignRequestStatus | undefined;
-      const [data, total] = await adminService.listCampaignRequests(page, limit, status);
+      const [data, total] = await adminService.listCampaignRequests(
+        page,
+        limit,
+        status,
+      );
       sendPaginated(res, data, { total, page, limit });
     } catch (err) {
       next(err);
     }
   },
 
-  async getCampaignRequestById(req: Request, res: Response, next: NextFunction) {
+  async getCampaignRequestById(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
     try {
       const request = await adminService.getCampaignRequestById(req.params.id);
       sendSuccess(res, request);
@@ -109,7 +118,10 @@ export const adminController = {
 
   async unsuspendCampaign(req: Request, res: Response, next: NextFunction) {
     try {
-      const campaign = await adminService.unsuspendCampaign(req.params.id, req.user!.id);
+      const campaign = await adminService.unsuspendCampaign(
+        req.params.id,
+        req.user!.id,
+      );
       sendSuccess(res, campaign, 'Campaign unsuspended');
     } catch (err) {
       next(err);
@@ -120,14 +132,22 @@ export const adminController = {
     try {
       const { page, limit } = getPages(req.query);
       const status = req.query.status as WithdrawStatus | undefined;
-      const [data, total] = await adminService.listWithdrawRequests(page, limit, status);
+      const [data, total] = await adminService.listWithdrawRequests(
+        page,
+        limit,
+        status,
+      );
       sendPaginated(res, data, { total, page, limit });
     } catch (err) {
       next(err);
     }
   },
 
-  async getWithdrawRequestById(req: Request, res: Response, next: NextFunction) {
+  async getWithdrawRequestById(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
     try {
       const request = await adminService.getWithdrawRequestById(req.params.id);
       sendSuccess(res, request);
@@ -136,7 +156,11 @@ export const adminController = {
     }
   },
 
-  async processWithdrawRequest(req: Request, res: Response, next: NextFunction) {
+  async processWithdrawRequest(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
     try {
       const { action, rejectReason } = req.body as {
         action: 'approve' | 'reject';
@@ -167,7 +191,10 @@ export const adminController = {
 
   async resolveReport(req: Request, res: Response, next: NextFunction) {
     try {
-      const report = await adminService.resolveReport(req.params.id, req.user!.id);
+      const report = await adminService.resolveReport(
+        req.params.id,
+        req.user!.id,
+      );
       sendSuccess(res, report, 'Report resolved');
     } catch (err) {
       next(err);
@@ -177,17 +204,39 @@ export const adminController = {
   async listAllTransactions(req: Request, res: Response, next: NextFunction) {
     try {
       const { page, limit } = getPages(req.query);
-      const [data, total] = await adminService.listAllTransactions(page, limit);
+      const search = req.query.search as string | undefined;
+      const sortOrder = (req.query.sortOrder as 'ASC' | 'DESC') || 'DESC';
+      const [data, total] = await adminService.listAllTransactions(
+        page,
+        limit,
+        search,
+        sortOrder,
+      );
       sendPaginated(res, data, { total, page, limit });
     } catch (err) {
       next(err);
     }
   },
 
-  async getCampaignTransactions(req: Request, res: Response, next: NextFunction) {
+  async getCampaignTransactions(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
     try {
       const { page, limit } = getPages(req.query);
-      const [data, total] = await adminService.getCampaignTransactions(req.params.id, page, limit);
+      const search = req.query.search as string | undefined;
+      const sortBy =
+        (req.query.sortBy as 'createdAt' | 'amount') || 'createdAt';
+      const sortOrder = (req.query.sortOrder as 'ASC' | 'DESC') || 'DESC';
+      const [data, total] = await adminService.getCampaignTransactions(
+        req.params.id,
+        page,
+        limit,
+        search,
+        sortBy,
+        sortOrder,
+      );
       sendPaginated(res, data, { total, page, limit });
     } catch (err) {
       next(err);

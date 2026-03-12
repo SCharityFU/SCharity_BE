@@ -2,12 +2,17 @@ import { Router } from 'express';
 import { campaignController } from '../controllers/campaign.controller';
 import { donationController } from '../controllers/donation.controller';
 import { authenticate, optionalAuthenticate } from '../middlewares/auth.middleware';
+import { parseMultipartBody, validate, validateQuery } from '../middlewares/validate.middleware';
+import { uploadCampaignFiles, uploadMultiple } from '../middlewares/upload.middleware';
 import { validate, validateQuery } from '../middlewares/validate.middleware';
-import { uploadMultiple } from '../middlewares/upload.middleware';
+import { uploadMultiple, uploadCampaignFiles, uploadEvidence } from '../middlewares/upload.middleware';
 import {
+  createCampaignRequestSchema,
   updateCampaignSchema,
+  updateCampaignRequestSchema,
   campaignQuerySchema,
   createCampaignUpdateSchema,
+  updateBankInfoSchema,
 } from '../validators/campaign.validator';
 import { createCommentSchema } from '../validators/donation.validator';
 import { reportCampaignSchema } from '../validators/user.validator';
@@ -41,12 +46,22 @@ const router = Router();
  *               - $ref: '#/components/schemas/CreateCampaignRequest'
  *               - type: object
  *                 properties:
- *                   files:
+ *                   thumbnail:
+ *                     type: string
+ *                     format: binary
+ *                     description: Campaign thumbnail image (max 1)
+ *                   media:
  *                     type: array
  *                     items:
  *                       type: string
  *                       format: binary
- *                     description: Thumbnail, media and proof documents
+ *                     description: Campaign media images (max 5)
+ *                   proofDocuments:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                       format: binary
+ *                     description: Proof documents - images or PDFs (max 5)
  *     responses:
  *       201:
  *         description: Request submitted and pending admin review
@@ -64,7 +79,7 @@ const router = Router();
  *       422:
  *         description: Validation error
  */
-router.post('/requests', authenticate, uploadMultiple, campaignController.submitRequest);
+router.post('/requests', authenticate, uploadCampaignFiles, parseMultipartBody, validate(createCampaignRequestSchema), campaignController.submitRequest);
 
 /**
  * @swagger
@@ -95,6 +110,163 @@ router.post('/requests', authenticate, uploadMultiple, campaignController.submit
  *                       $ref: '#/components/schemas/PaginationMeta'
  */
 router.get('/requests/mine', authenticate, campaignController.getMyRequests);
+
+/**
+ * @swagger
+ * /campaigns/requests/mine/{requestId}:
+ *   get:
+ *     summary: Get a single campaign request by ID (owner only)
+ *     tags: [Campaigns]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: requestId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Campaign request ID
+ *     responses:
+ *       200:
+ *         description: Campaign request detail
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       $ref: '#/components/schemas/CampaignRequest'
+ *       404:
+ *         description: Campaign request not found
+ */
+router.get('/requests/mine/:requestId', authenticate, campaignController.getMyRequestById);
+
+/**
+ * @swagger
+ * /campaigns/requests/{requestId}/bank-info:
+ *   put:
+ *     summary: Update bank information for a campaign request (owner only, pending status)
+ *     tags: [Campaigns]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: requestId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Campaign request ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [bankInfo]
+ *             properties:
+ *               bankInfo:
+ *                 $ref: '#/components/schemas/BankInfo'
+ *     responses:
+ *       200:
+ *         description: Bank information updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       $ref: '#/components/schemas/CampaignRequest'
+ *       403:
+ *         description: Request is not in pending status
+ *       404:
+ *         description: Campaign request not found
+ *       422:
+ *         description: Validation error
+ */
+router.put('/requests/:requestId/bank-info', authenticate, validate(updateBankInfoSchema), campaignController.updateRequestBankInfo);
+
+/**
+ * @swagger
+ * /campaigns/requests/{requestId}:
+ *   put:
+ *     summary: Update a campaign request (owner only, pending status)
+ *     description: Allows updating title, story, goalAmount, deadline, category of a pending request. Supports multipart/form-data for file uploads.
+ *     tags: [Campaigns]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: requestId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Campaign request ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 minLength: 5
+ *                 maxLength: 100
+ *               story:
+ *                 type: string
+ *                 minLength: 50
+ *               goalAmount:
+ *                 type: number
+ *                 minimum: 1000000
+ *               deadline:
+ *                 type: string
+ *                 format: date-time
+ *               category:
+ *                 type: string
+ *                 enum: [education, medical, disaster, community, environment, other]
+ *               thumbnail:
+ *                 type: string
+ *                 format: binary
+ *                 description: Campaign thumbnail image (max 1)
+ *               media:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *                 description: Campaign media images (max 5)
+ *               proofDocuments:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *                 description: Proof documents - images or PDFs (max 5)
+ *     responses:
+ *       200:
+ *         description: Campaign request updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       $ref: '#/components/schemas/CampaignRequest'
+ *       403:
+ *         description: Request is not in pending status
+ *       404:
+ *         description: Campaign request not found
+ *       422:
+ *         description: Validation error
+ */
+router.put('/requests/:requestId', authenticate, uploadCampaignFiles, parseMultipartBody, validate(updateCampaignRequestSchema), campaignController.updateCampaignRequest);
 
 /**
  * @swagger
@@ -408,9 +580,18 @@ router.delete('/:campaignId/comments/:commentId', authenticate, donationControll
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
- *             $ref: '#/components/schemas/ReportCampaignRequest'
+ *             allOf:
+ *               - $ref: '#/components/schemas/ReportCampaignRequest'
+ *               - type: object
+ *                 properties:
+ *                   evidence:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                       format: binary
+ *                     description: Evidence images (max 5)
  *     responses:
  *       201:
  *         description: Report submitted
@@ -420,6 +601,7 @@ router.delete('/:campaignId/comments/:commentId', authenticate, donationControll
 router.post(
   '/:campaignId/report',
   authenticate,
+  uploadEvidence,
   validate(reportCampaignSchema),
   userController.reportCampaign,
 );

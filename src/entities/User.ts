@@ -86,6 +86,15 @@ export class User {
   isKycVerified: boolean;
 
   @Column({ nullable: true })
+  kycFullName: string;
+
+  @Column({ nullable: true })
+  kycIdNumber: string;
+
+  @Column({ nullable: true, type: 'text' })
+  faceEmbedding: string;
+
+  @Column({ nullable: true })
   emailVerificationToken: string;
 
   @Column({ nullable: true })

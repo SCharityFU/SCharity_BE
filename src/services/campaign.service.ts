@@ -3,14 +3,18 @@ import {
   CampaignRequestRepository,
   CampaignUpdateRepository,
 } from '../repositories/campaign.repository';
-import { DonationRepository } from '../repositories/donation.repository';
+import { DonationRepository, CommentRepository } from '../repositories/donation.repository';
 import { ReportRepository } from '../repositories/report.repository';
+import { toReportBriefDto } from '../utils/dto-mapper';
 import { CampaignStatus } from '../entities/Campaign';
+import { DonationStatus } from '../entities/Donation';
 import { NotFoundError, BadRequestError, ForbiddenError, ConflictError } from '../utils/errors';
 import {
   CreateCampaignRequestDto,
   CampaignQueryDto,
   CreateCampaignUpdateDto,
+  UpdateBankInfoDto,
+  UpdateCampaignRequestDto,
 } from '../validators/campaign.validator';
 import { emailQueue } from '../queues/email.queue';
 import redisClient from '../config/redis';
@@ -52,6 +56,52 @@ export class CampaignService {
     });
   }
 
+  async getMyRequestById(requestId: string, creatorId: string) {
+    const request = await CampaignRequestRepository.findOne({
+      where: { id: requestId, requesterId: creatorId },
+    });
+    if (!request) throw new NotFoundError('Campaign request not found');
+    return request;
+  }
+
+  async updateCampaignRequest(requestId: string, creatorId: string, dto: UpdateCampaignRequestDto & { thumbnailUrl?: string; mediaUrls?: string[]; proofDocuments?: string[] }) {
+    const request = await CampaignRequestRepository.findOne({
+      where: { id: requestId, requesterId: creatorId },
+    });
+    if (!request) throw new NotFoundError('Campaign request not found');
+
+    if (request.status !== 'pending') {
+      throw new ForbiddenError('Campaign request can only be updated when in pending status');
+    }
+
+    if (dto.title !== undefined) request.title = dto.title;
+    if (dto.story !== undefined) request.story = dto.story;
+    if (dto.goalAmount !== undefined) request.goalAmount = dto.goalAmount;
+    if (dto.deadline !== undefined) request.deadline = new Date(dto.deadline);
+    if (dto.category !== undefined) request.category = dto.category;
+    if (dto.thumbnailUrl !== undefined) request.thumbnailUrl = dto.thumbnailUrl;
+    if (dto.mediaUrls !== undefined) request.mediaUrls = dto.mediaUrls;
+    if (dto.proofDocuments !== undefined) request.proofDocuments = dto.proofDocuments;
+
+    await CampaignRequestRepository.save(request);
+    return request;
+  }
+
+  async updateRequestBankInfo(requestId: string, creatorId: string, dto: UpdateBankInfoDto) {
+    const request = await CampaignRequestRepository.findOne({
+      where: { id: requestId, requesterId: creatorId },
+    });
+    if (!request) throw new NotFoundError('Campaign request not found');
+
+    if (request.status !== 'pending') {
+      throw new ForbiddenError('Bank info can only be updated for pending requests');
+    }
+
+    request.bankInfo = dto.bankInfo;
+    await CampaignRequestRepository.save(request);
+    return request;
+  }
+
   async listCampaigns(query: CampaignQueryDto) {
     const cacheKey = `campaigns:${JSON.stringify(query)}`;
     const cached = await redisClient.get(cacheKey);
@@ -75,7 +125,7 @@ export class CampaignService {
   }
 
   async getCampaignById(id: string) {
-    const cacheKey = `campaign:${id}`;
+    const cacheKey = `campaign:v2:${id}`;
     const cached = await redisClient.get(cacheKey);
     if (cached) return JSON.parse(cached);
 
@@ -84,6 +134,30 @@ export class CampaignService {
       relations: ['creator'],
     });
     if (!campaign) throw new NotFoundError('Campaign not found');
+
+    const [donations, updates, comments] = await Promise.all([
+      DonationRepository.find({
+        where: { campaignId: id, status: DonationStatus.SUCCESS },
+        relations: ['donor'],
+        order: { createdAt: 'DESC' },
+      }),
+      CampaignUpdateRepository.find({
+        where: { campaignId: id, isDraft: false },
+        relations: ['creator'],
+        order: { createdAt: 'DESC' },
+      }),
+      CommentRepository.find({
+        where: { campaignId: id },
+        relations: ['donor', 'donation'],
+        order: { createdAt: 'DESC' },
+      }),
+    ]);
+
+    Object.assign(campaign, {
+      donations,
+      updates,
+      comments,
+    });
 
     await redisClient.setex(cacheKey, CAMPAIGN_CACHE_TTL, JSON.stringify(campaign));
     return campaign;
@@ -194,6 +268,7 @@ export class CampaignService {
 
     const update = CampaignUpdateRepository.create({
       ...dto,
+      isDraft: dto.isDraft === 'true',
       campaignId,
       creatorId,
       mediaUrls,
@@ -251,7 +326,7 @@ export class CampaignService {
     // Increment report count
     await CampaignRepository.increment({ id: campaignId }, 'reportCount', 1);
 
-    return report;
+    return toReportBriefDto(report);
   }
 
   async getMyCampaigns(creatorId: string, page: number, limit: number) {

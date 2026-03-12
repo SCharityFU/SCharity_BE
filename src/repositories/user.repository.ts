@@ -48,6 +48,10 @@ export const UserRepository = AppDataSource.getRepository(User).extend({
       take: limit,
     });
   },
+
+  async countActiveUsers(): Promise<number> {
+    return this.count({ where: { status: UserStatus.ACTIVE } });
+  },
 });
 
 export const BankAccountRepository = AppDataSource.getRepository(BankAccount).extend({

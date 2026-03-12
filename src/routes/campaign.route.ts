@@ -4,8 +4,7 @@ import { donationController } from '../controllers/donation.controller';
 import { authenticate, optionalAuthenticate } from '../middlewares/auth.middleware';
 import { parseMultipartBody, validate, validateQuery } from '../middlewares/validate.middleware';
 import { uploadCampaignFiles, uploadMultiple } from '../middlewares/upload.middleware';
-import { validate, validateQuery } from '../middlewares/validate.middleware';
-import { uploadMultiple, uploadCampaignFiles, uploadEvidence } from '../middlewares/upload.middleware';
+import { uploadEvidence } from '../middlewares/upload.middleware';
 import {
   createCampaignRequestSchema,
   updateCampaignSchema,

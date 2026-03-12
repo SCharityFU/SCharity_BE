@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { userService } from '../services/user.service';
 import { campaignService } from '../services/campaign.service';
+import { storageService } from '../services/storage.service';
 import { sendSuccess, sendCreated, sendNoContent } from '../utils/response';
 
 export const userController = {
@@ -71,15 +72,40 @@ export const userController = {
   async reportCampaign(req: Request, res: Response, next: NextFunction) {
     try {
       const { campaignId } = req.params;
-      const { reason, description, evidenceUrls } = req.body;
+      const { reason, description } = req.body;
+
+      const files = req.files as Express.Multer.File[] | undefined;
+      const evidenceUrls: string[] = [];
+
+      if (files && files.length > 0) {
+        for (let i = 0; i < files.length; i++) {
+          const ext = files[i].mimetype.split('/')[1] || 'jpg';
+          const url = await storageService.uploadFile(
+            files[i].buffer,
+            `reports/${campaignId}/${Date.now()}-evidence-${i}.${ext}`,
+            files[i].mimetype,
+          );
+          evidenceUrls.push(url);
+        }
+      }
+
       const report = await campaignService.reportCampaign(
         campaignId,
         req.user!.id,
         reason,
         description,
-        evidenceUrls,
+        evidenceUrls.length ? evidenceUrls : undefined,
       );
       sendCreated(res, report, 'Campaign reported successfully');
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async verifyKyc(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await userService.verifyKyc(req.user!.id, req.body);
+      sendSuccess(res, result);
     } catch (err) {
       next(err);
     }

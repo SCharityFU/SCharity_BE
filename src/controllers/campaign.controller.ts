@@ -69,7 +69,10 @@ export const campaignController = {
         );
         proofDocuments.push(url);
       }
-
+      // var url =  "https://www.pinterest.com/pin/182044009932036861/";
+      // thumbnailUrl = url;
+      // mediaUrls.push(url);
+      // proofDocuments.push(url);
       const request = await campaignService.createRequest(
         { ...req.body, thumbnailUrl, mediaUrls, proofDocuments },
         req.user!.id,
@@ -86,6 +89,84 @@ export const campaignController = {
       const { page, limit } = getPages(req.query);
       const [data, total] = await campaignService.getMyRequests(req.user!.id, page, limit);
       sendPaginated(res, data, { total, page, limit });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // CampaignCreator: get a single campaign request by ID (own)
+  async getMyRequestById(req: Request, res: Response, next: NextFunction) {
+    try {
+      const request = await campaignService.getMyRequestById(req.params.requestId, req.user!.id);
+      sendSuccess(res, request);
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // CampaignCreator: update bank info for a campaign request
+  async updateRequestBankInfo(req: Request, res: Response, next: NextFunction) {
+    try {
+      const request = await campaignService.updateRequestBankInfo(
+        req.params.requestId,
+        req.user!.id,
+        req.body,
+      );
+      sendSuccess(res, request, 'Bank information updated successfully');
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // CampaignCreator: update campaign request (pending only)
+  async updateCampaignRequest(req: Request, res: Response, next: NextFunction) {
+    try {
+      // Handle file uploads similarly to submitRequest
+      const thumbnailFile = (req.files as Record<string, Express.Multer.File[]>)?.thumbnail?.[0];
+      const mediaFiles = (req.files as Record<string, Express.Multer.File[]>)?.media ?? [];
+      const proofFiles = (req.files as Record<string, Express.Multer.File[]>)?.proofDocuments ?? [];
+
+      let thumbnailUrl: string | undefined;
+      const mediaUrls: string[] = [];
+      const proofDocuments: string[] = [];
+
+      if (thumbnailFile) {
+        thumbnailUrl = await storageService.uploadFile(
+          thumbnailFile.buffer,
+          `campaigns/requests/${Date.now()}-thumbnail.${thumbnailFile.mimetype.split('/')[1]}`,
+          thumbnailFile.mimetype,
+        );
+      }
+
+      for (let i = 0; i < mediaFiles.length; i++) {
+        const url = await storageService.uploadFile(
+          mediaFiles[i].buffer,
+          `campaigns/requests/${Date.now()}-media-${i}.${mediaFiles[i].mimetype.split('/')[1]}`,
+          mediaFiles[i].mimetype,
+        );
+        mediaUrls.push(url);
+      }
+
+      for (const doc of proofFiles) {
+        const url = await storageService.uploadFile(
+          doc.buffer,
+          `campaigns/requests/${Date.now()}-doc.${doc.originalname.split('.').pop()}`,
+          doc.mimetype,
+        );
+        proofDocuments.push(url);
+      }
+
+      const request = await campaignService.updateCampaignRequest(
+        req.params.requestId,
+        req.user!.id,
+        {
+          ...req.body,
+          ...(thumbnailUrl ? { thumbnailUrl } : {}),
+          ...(mediaUrls.length > 0 ? { mediaUrls } : {}),
+          ...(proofDocuments.length > 0 ? { proofDocuments } : {}),
+        },
+      );
+      sendSuccess(res, request, 'Campaign request updated successfully');
     } catch (err) {
       next(err);
     }

@@ -13,6 +13,8 @@ import {
   CreateCampaignRequestDto,
   CampaignQueryDto,
   CreateCampaignUpdateDto,
+  UpdateBankInfoDto,
+  UpdateCampaignRequestDto,
 } from '../validators/campaign.validator';
 import { emailQueue } from '../queues/email.queue';
 import redisClient from '../config/redis';
@@ -52,6 +54,52 @@ export class CampaignService {
       skip: (page - 1) * limit,
       take: limit,
     });
+  }
+
+  async getMyRequestById(requestId: string, creatorId: string) {
+    const request = await CampaignRequestRepository.findOne({
+      where: { id: requestId, requesterId: creatorId },
+    });
+    if (!request) throw new NotFoundError('Campaign request not found');
+    return request;
+  }
+
+  async updateCampaignRequest(requestId: string, creatorId: string, dto: UpdateCampaignRequestDto & { thumbnailUrl?: string; mediaUrls?: string[]; proofDocuments?: string[] }) {
+    const request = await CampaignRequestRepository.findOne({
+      where: { id: requestId, requesterId: creatorId },
+    });
+    if (!request) throw new NotFoundError('Campaign request not found');
+
+    if (request.status !== 'pending') {
+      throw new ForbiddenError('Campaign request can only be updated when in pending status');
+    }
+
+    if (dto.title !== undefined) request.title = dto.title;
+    if (dto.story !== undefined) request.story = dto.story;
+    if (dto.goalAmount !== undefined) request.goalAmount = dto.goalAmount;
+    if (dto.deadline !== undefined) request.deadline = new Date(dto.deadline);
+    if (dto.category !== undefined) request.category = dto.category;
+    if (dto.thumbnailUrl !== undefined) request.thumbnailUrl = dto.thumbnailUrl;
+    if (dto.mediaUrls !== undefined) request.mediaUrls = dto.mediaUrls;
+    if (dto.proofDocuments !== undefined) request.proofDocuments = dto.proofDocuments;
+
+    await CampaignRequestRepository.save(request);
+    return request;
+  }
+
+  async updateRequestBankInfo(requestId: string, creatorId: string, dto: UpdateBankInfoDto) {
+    const request = await CampaignRequestRepository.findOne({
+      where: { id: requestId, requesterId: creatorId },
+    });
+    if (!request) throw new NotFoundError('Campaign request not found');
+
+    if (request.status !== 'pending') {
+      throw new ForbiddenError('Bank info can only be updated for pending requests');
+    }
+
+    request.bankInfo = dto.bankInfo;
+    await CampaignRequestRepository.save(request);
+    return request;
   }
 
   async listCampaigns(query: CampaignQueryDto) {
@@ -133,12 +181,16 @@ export class CampaignService {
     return CampaignRepository.findOne({ where: { id } });
   }
 
-  async closeCampaign(id: string, creatorId: string) {
+  async closeCampaign(id: string, userId: string) {
     const campaign = await CampaignRepository.findOne({
-      where: { id, creatorId },
+      where: { id },
       relations: ['creator'],
     });
     if (!campaign) throw new NotFoundError('Campaign not found');
+
+    if (campaign.creatorId !== userId) {
+      throw new ForbiddenError('You are not the creator of this campaign');
+    }
 
     if (!campaign.canClose) {
       throw new BadRequestError(

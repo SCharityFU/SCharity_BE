@@ -1,5 +1,6 @@
 // ── Admin Response DTOs ──────────────────────────────────────────────────────
 
+import { CampaignCategory, CampaignStatus } from '../../entities/Campaign';
 import { DonationStatus } from '../../entities/Donation';
 
 export interface DashboardStatsResponseDto {
@@ -18,6 +19,80 @@ export interface DonationChartDataPointDto {
   date: string;
   amount: number;
   count: number;
+}
+
+/**
+ * UC 2.1.4 – Admin: Campaign list row
+ *
+ * This is the table projection used by admin campaign management screens.
+ */
+export interface AdminCampaignListItemDto {
+  id: string;
+  title: string;
+  organizer: {
+    id: string;
+    fullName: string;
+  };
+  /** Campaign lifecycle status (active/closed/suspended/...) */
+  status: CampaignStatus;
+  /** Progress percentage in range [0, 100] */
+  progressPercent: number;
+  /** Current raised amount in VND */
+  raisedAmount: number;
+  /** Funding goal in VND */
+  goalAmount: number;
+  /** Convenience label for UI rendering, e.g. "2000000 / 5000000" */
+  fundingProgress: string;
+  /** Used by frontend action button to open details endpoint */
+  viewDetails: {
+    campaignId: string;
+    endpoint: string;
+  };
+  deadline: Date;
+  createdAt: Date;
+}
+
+/**
+ * UC 2.1.5 – Admin: Campaign basic detail tab
+ */
+export interface AdminCampaignDetailDto {
+  id: string;
+  title: string;
+  story: string;
+  status: CampaignStatus;
+  category: CampaignCategory;
+  progressPercent: number;
+  raisedAmount: number;
+  goalAmount: number;
+  donorCount: number;
+  reportCount: number;
+  deadline: Date;
+  thumbnailUrl: string | null;
+  mediaUrls: string[] | null;
+  suspendReason: string | null;
+  suspendedAt: Date | null;
+  closedAt: Date | null;
+  approvedAt: Date | null;
+  creator: {
+    id: string;
+    fullName: string;
+    avatarUrl: string | null;
+  };
+  publicView: {
+    campaignId: string;
+    endpoint: string;
+  };
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * UC 2.1.5 – Admin: Campaign analytics for charts
+ */
+export interface AdminCampaignAnalyticsResponseDto {
+  campaignId: string;
+  days: number;
+  chartData: DonationChartDataPointDto[];
 }
 
 /**

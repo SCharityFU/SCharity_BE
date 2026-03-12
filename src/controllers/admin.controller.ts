@@ -103,6 +103,16 @@ export const adminController = {
     }
   },
 
+  async getCampaignAnalytics(req: Request, res: Response, next: NextFunction) {
+    try {
+      const days = Number(req.query.days) || 30;
+      const data = await adminService.getCampaignAnalytics(req.params.id, days);
+      sendSuccess(res, data);
+    } catch (err) {
+      next(err);
+    }
+  },
+
   async suspendCampaign(req: Request, res: Response, next: NextFunction) {
     try {
       const campaign = await adminService.suspendCampaign(
@@ -229,6 +239,8 @@ export const adminController = {
       const sortBy =
         (req.query.sortBy as 'createdAt' | 'amount') || 'createdAt';
       const sortOrder = (req.query.sortOrder as 'ASC' | 'DESC') || 'DESC';
+      const startDate = req.query.startDate as string | undefined;
+      const endDate = req.query.endDate as string | undefined;
       const [data, total] = await adminService.getCampaignTransactions(
         req.params.id,
         page,
@@ -236,6 +248,8 @@ export const adminController = {
         search,
         sortBy,
         sortOrder,
+        startDate,
+        endDate,
       );
       sendPaginated(res, data, { total, page, limit });
     } catch (err) {

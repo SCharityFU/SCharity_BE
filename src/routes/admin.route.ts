@@ -2,12 +2,16 @@ import { Router } from 'express';
 import { adminController } from '../controllers/admin.controller';
 import { authenticate } from '../middlewares/auth.middleware';
 import { requireAdmin } from '../middlewares/role.middleware';
-import { validate } from '../middlewares/validate.middleware';
+import { validate, validateQuery } from '../middlewares/validate.middleware';
 import {
   reviewCampaignRequestSchema,
   suspendCampaignSchema,
 } from '../validators/campaign.validator';
 import { processWithdrawRequestSchema } from '../validators/withdraw.validator';
+import {
+  adminCampaignAnalyticsQuerySchema,
+  adminCampaignTransactionsQuerySchema,
+} from '../validators/admin.validator';
 
 /**
  * @swagger
@@ -183,7 +187,16 @@ router.post(
  * @swagger
  * /admin/campaigns:
  *   get:
- *     summary: List all campaigns (admin view)
+ *     summary: UC 2.1.4 - View list of campaigns (admin)
+ *     description: |
+ *       Returns paginated campaign rows for the admin management table.
+ *
+ *       **UI-oriented fields included:**
+ *       - Campaign name (`title`)
+ *       - Organizer (`organizer.fullName`)
+ *       - Project progress (`progressPercent`, `status`)
+ *       - Funding progress (`raisedAmount`, `goalAmount`, `fundingProgress`)
+ *       - Action payload for details (`viewDetails.campaignId`, `viewDetails.endpoint`)
  *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
@@ -209,16 +222,63 @@ router.post(
  *         content:
  *           application/json:
  *             schema:
- *               allOf:
- *                 - $ref: '#/components/schemas/SuccessResponse'
- *                 - type: object
- *                   properties:
- *                     data:
- *                       type: array
- *                       items:
- *                         $ref: '#/components/schemas/Campaign'
- *                     pagination:
- *                       $ref: '#/components/schemas/PaginationMeta'
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Success
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                         format: uuid
+ *                       title:
+ *                         type: string
+ *                       organizer:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                             format: uuid
+ *                           fullName:
+ *                             type: string
+ *                       status:
+ *                         type: string
+ *                         enum: [pending, active, closed, suspended, completed, withdrawn]
+ *                       progressPercent:
+ *                         type: number
+ *                         minimum: 0
+ *                         maximum: 100
+ *                       raisedAmount:
+ *                         type: number
+ *                       goalAmount:
+ *                         type: number
+ *                       fundingProgress:
+ *                         type: string
+ *                         example: '2000000 / 5000000'
+ *                       viewDetails:
+ *                         type: object
+ *                         properties:
+ *                           campaignId:
+ *                             type: string
+ *                             format: uuid
+ *                           endpoint:
+ *                             type: string
+ *                             example: /api/v1/admin/campaigns/5b63d87e-36a4-42cc-beb1-58f4c314f2ab
+ *                       deadline:
+ *                         type: string
+ *                         format: date-time
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                 pagination:
+ *                   $ref: '#/components/schemas/PaginationMeta'
  */
 router.get('/campaigns', adminController.listCampaigns);
 
@@ -248,6 +308,42 @@ router.get('/campaigns', adminController.listCampaigns);
  *         description: Not found
  */
 router.get('/campaigns/:id', adminController.getCampaignDetails);
+
+/**
+ * @swagger
+ * /admin/campaigns/{id}/analytics:
+ *   get:
+ *     summary: UC 2.1.5 - View campaign analytics charts (admin)
+ *     description: |
+ *       Returns time-series chart data for one campaign.
+ *
+ *       Frontend can render two charts from the same payload:
+ *       - Donation progress over time (`amount`)
+ *       - Number of donors over time (`count`)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/idParam'
+ *       - in: query
+ *         name: days
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 365
+ *           default: 30
+ *         description: Number of past days included in chart aggregation
+ *     responses:
+ *       200:
+ *         description: Campaign analytics chart payload
+ *       404:
+ *         description: Campaign not found
+ */
+router.get(
+  '/campaigns/:id/analytics',
+  validateQuery(adminCampaignAnalyticsQuerySchema),
+  adminController.getCampaignAnalytics,
+);
 
 /**
  * @swagger
@@ -341,6 +437,18 @@ router.put('/campaigns/:id/unsuspend', adminController.unsuspendCampaign);
  *           enum: [ASC, DESC]
  *           default: DESC
  *         description: Sort direction
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: Optional lower bound for donation timestamp filter (inclusive)
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: Optional upper bound for donation timestamp filter (inclusive)
  *     responses:
  *       200:
  *         description: Paginated campaign donation list
@@ -408,6 +516,7 @@ router.put('/campaigns/:id/unsuspend', adminController.unsuspendCampaign);
  */
 router.get(
   '/campaigns/:id/transactions',
+  validateQuery(adminCampaignTransactionsQuerySchema),
   adminController.getCampaignTransactions,
 );
 

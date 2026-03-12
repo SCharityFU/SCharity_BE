@@ -164,11 +164,12 @@ Mounted in `src/routes/index.ts` under `/api/v1`:
 | GET    | `/admin/campaign-requests`             | List campaign creation requests (`?status=pending\|approved\|rejected`) |
 | GET    | `/admin/campaign-requests/:id`         | Get single campaign request                                             |
 | POST   | `/admin/campaign-requests/:id/review`  | Approve or reject a campaign request                                    |
-| GET    | `/admin/campaigns`                     | List all campaigns (`?status`, `?category`, `?search`)                  |
-| GET    | `/admin/campaigns/:id`                 | Full campaign detail                                                    |
+| GET    | `/admin/campaigns`                     | UC 2.1.4 admin campaign table rows (name, organizer, progress, raised/goal, detail action payload) |
+| GET    | `/admin/campaigns/:id`                 | UC 2.1.5 basic campaign detail tab (admin projection + public-view link) |
+| GET    | `/admin/campaigns/:id/analytics`       | UC 2.1.5 campaign chart data (`?days`) for amount and donor-count over time |
 | PUT    | `/admin/campaigns/:id/suspend`         | Suspend campaign (freezes donations, cancels pending withdrawals)       |
 | PUT    | `/admin/campaigns/:id/unsuspend`       | Lift campaign suspension → restores `active` status                     |
-| GET    | `/admin/campaigns/:id/transactions`    | Paginated transaction list for a campaign                               |
+| GET    | `/admin/campaigns/:id/transactions`    | Paginated transaction list for a campaign (`?search`, `?sortBy`, `?sortOrder`, `?startDate`, `?endDate`) |
 | GET    | `/admin/withdraw-requests`             | List all withdrawal requests (`?status`)                                |
 | GET    | `/admin/withdraw-requests/:id`         | Get single withdrawal request                                           |
 | POST   | `/admin/withdraw-requests/:id/process` | Approve or reject withdrawal request                                    |
@@ -187,7 +188,7 @@ Mounted in `src/routes/index.ts` under `/api/v1`:
 | `donation.controller.ts` | `donationController` | `donate`, `getMyDonations`, `getDonation`, `getCampaignDonations`, `createComment`, `getComments`, `deleteComment`                                                                                                                                                                                                                                                  |
 | `user.controller.ts`     | `userController`     | `getActiveUserCount`, `getProfile`, `updateProfile`, `getBankAccounts`, `addBankAccount`, `deleteBankAccount`, `setDefaultBankAccount`, `reportCampaign`                                                                                                                                                                                                            |
 | `withdraw.controller.ts` | `withdrawController` | `createRequest`, `getMyRequests`, `getRequestById`                                                                                                                                                                                                                                                                                                                  |
-| `admin.controller.ts`    | `adminController`    | `getDashboardStats`, `getDonationChartData`, `listCampaignRequests`, `getCampaignRequestById`, `reviewCampaignRequest`, `listCampaigns`, `getCampaignDetails`, `suspendCampaign`, `unsuspendCampaign`, `listWithdrawRequests`, `getWithdrawRequestById`, `processWithdrawRequest`, `listReports`, `resolveReport`, `listAllTransactions`, `getCampaignTransactions` |
+| `admin.controller.ts`    | `adminController`    | `getDashboardStats`, `getDonationChartData`, `listCampaignRequests`, `getCampaignRequestById`, `reviewCampaignRequest`, `listCampaigns`, `getCampaignDetails`, `getCampaignAnalytics`, `suspendCampaign`, `unsuspendCampaign`, `listWithdrawRequests`, `getWithdrawRequestById`, `processWithdrawRequest`, `listReports`, `resolveReport`, `listAllTransactions`, `getCampaignTransactions` |
 
 ---
 
@@ -278,8 +279,9 @@ Mounted in `src/routes/index.ts` under `/api/v1`:
 | `listCampaignRequests(page, limit, status?)`                                     | With `requester` + `reviewedBy` relations                                                           |
 | `getCampaignRequestById(id)`                                                     | Throws `NotFoundError` if missing                                                                   |
 | `reviewCampaignRequest(id, adminId, action, rejectReason?)`                      | Approves → creates `Campaign` (status `ACTIVE`), queues approval/rejection email; writes `AuditLog` |
-| `listCampaigns(page, limit, filters)`                                            | `status`, `search`, `category` filters                                                              |
-| `getCampaignDetails(id)`                                                         | With `creator` relation                                                                             |
+| `listCampaigns(page, limit, filters)`                                            | `status`, `search`, `category` filters; returns `AdminCampaignListItemDto[]` for admin table projection |
+| `getCampaignDetails(id)`                                                         | Returns `AdminCampaignDetailDto` (basic tab projection + public view endpoint)                     |
+| `getCampaignAnalytics(id, days?)`                                                | Returns campaign chart payload (`DonationChartDataPointDto[]`) for admin detail charts             |
 | `suspendCampaign(id, adminId, reason)`                                           | Sets `SUSPENDED`, cancels pending withdrawals, queues suspension email, writes `AuditLog`           |
 | `unsuspendCampaign(id, adminId)`                                                 | Restores `ACTIVE` status, writes `AuditLog`                                                         |
 | `listWithdrawRequests(page, limit, status?)`                                     | With `campaign`, `requester`, `processedBy` relations                                               |
@@ -287,7 +289,7 @@ Mounted in `src/routes/index.ts` under `/api/v1`:
 | `listReports(page, limit, status?)`                                              | Returns mapped `ReportResponseDto[]`                                                                |
 | `resolveReport(id, adminId)`                                                     | Sets `RESOLVED`, writes resolver fields                                                             |
 | `listAllTransactions(page, limit, search?, sortOrder?)`                          | Platform-wide donations                                                                             |
-| `getCampaignTransactions(campaignId, page, limit, search?, sortBy?, sortOrder?)` | Campaign-scoped donations                                                                           |
+| `getCampaignTransactions(campaignId, page, limit, search?, sortBy?, sortOrder?, startDate?, endDate?)` | Campaign-scoped donations with optional date-range filter                                           |
 | `getWithdrawRequestById(id)`                                                     | With `campaign` + `requester` relations                                                             |
 
 ---
@@ -367,7 +369,7 @@ All repositories are TypeORM `Repository` extensions via `.extend({})`.
 | Method                                                                    | Returns                                                             |
 | ------------------------------------------------------------------------- | ------------------------------------------------------------------- |
 | `findByDonorId(donorId, page, limit, filters?)`                           | `[Donation[], number]`; filters: `status`, `startDate`, `endDate`   |
-| `findByCampaignId(campaignId, page, limit, search?, sortBy?, sortOrder?)` | `[Donation[], number]`; `SUCCESS` status only; search by donor name |
+| `findByCampaignId(campaignId, page, limit, search?, sortBy?, sortOrder?, startDate?, endDate?)` | `[Donation[], number]`; `SUCCESS` status only; search by donor name; optional date range |
 | `findAllWithPagination(page, limit, search?, sortOrder?)`                 | `[Donation[], number]` (with `campaign` + `donor`)                  |
 | `getTotalDonationStats()`                                                 | `{ totalReceived, totalPaid }`                                      |
 | `getDonationChartData(campaignId, days?)`                                 | `Array<{ date, amount, count }>` (daily, `DATE_TRUNC`)              |
@@ -692,6 +694,13 @@ Concurrency: 5. Started in-process via dynamic import in `src/app.ts`.
 | `donationQuerySchema`  | Pagination + `status`, `startDate`, `endDate`, `sortBy`, `sortOrder` filters             |
 | `createCommentSchema`  | `campaignId` UUID; `content` 1–500; `emoji` optional; `isAnonymous` optional             |
 
+### `admin.validator.ts`
+
+| Schema / Type                             | Key rules                                                                                              |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `adminCampaignAnalyticsQuerySchema`       | `days` optional, coerced to integer within 1..365 (default 30)                                       |
+| `adminCampaignTransactionsQuerySchema`    | Pagination + `search`, `sortBy`, `sortOrder`, `startDate`, `endDate`; validates parseable date input |
+
 ### `user.validator.ts`
 
 | Schema / Type             | Key rules                                                                                 |
@@ -720,7 +729,7 @@ Organised by domain. Each domain has `request.dto.ts`, `response.dto.ts`, `index
 | `donation/` | `DonationResponseDto` (with `donorDisplayName` masking), `CommentResponseDto`                                                                                                                                                                                                               |
 | `user/`     | `BankAccountResponseDto`, `ReportBriefDto`, `ReportResponseDto`                                                                                                                                                                                                                             |
 | `withdraw/` | `WithdrawRequestResponseDto`                                                                                                                                                                                                                                                                |
-| `admin/`    | `DashboardStatsResponseDto`, `DonationChartDataPointDto`                                                                                                                                                                                                                                    |
+| `admin/`    | `DashboardStatsResponseDto`, `DonationChartDataPointDto`, `AdminCampaignListItemDto`, `AdminCampaignDetailDto`, `AdminCampaignAnalyticsResponseDto`, `AdminCampaignDonationResponseDto`                                                                                                      |
 | `common/`   | `PaginationQueryDto`, `ApiResponseDto`, `PaginatedResponseDto`, `PaginationMetaDto`, `MessageOnlyResponseDto`                                                                                                                                                                               |
 
 See `src/dtos/DTO_USECASE_MAPPING.md` for the full DTO ↔ SRS use-case mapping table and business-rule enforcement details.

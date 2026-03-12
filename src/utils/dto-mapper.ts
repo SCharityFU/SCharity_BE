@@ -6,12 +6,19 @@
 import type { User } from '../entities/User';
 import type { Report } from '../entities/Report';
 import type { Donation } from '../entities/Donation';
+import type { Campaign } from '../entities/Campaign';
 import type { UserPublicDto } from '../dtos/auth/response.dto';
 import type {
   ReportResponseDto,
   ReportBriefDto,
 } from '../dtos/user/response.dto';
-import type { AdminCampaignDonationResponseDto } from '../dtos/admin/response.dto';
+import type {
+  AdminCampaignAnalyticsResponseDto,
+  AdminCampaignDetailDto,
+  AdminCampaignDonationResponseDto,
+  AdminCampaignListItemDto,
+  DonationChartDataPointDto,
+} from '../dtos/admin/response.dto';
 import { maskAccountNumber } from './pagination';
 
 // ── User ────────────────────────────────────────────────────────────────────
@@ -106,5 +113,79 @@ export function toCampaignDonationAdminDto(
       ? maskAccountNumber(donation.bankAccount)
       : null,
     status: donation.status,
+  };
+}
+
+export function toAdminCampaignListItemDto(
+  campaign: Campaign,
+): AdminCampaignListItemDto {
+  const raisedAmount = Number(campaign.raisedAmount);
+  const goalAmount = Number(campaign.goalAmount);
+
+  return {
+    id: campaign.id,
+    title: campaign.title,
+    organizer: {
+      id: campaign.creatorId,
+      fullName: campaign.creator?.fullName ?? 'Unknown organizer',
+    },
+    status: campaign.status,
+    progressPercent: campaign.progressPercent,
+    raisedAmount,
+    goalAmount,
+    fundingProgress: `${raisedAmount} / ${goalAmount}`,
+    viewDetails: {
+      campaignId: campaign.id,
+      endpoint: `/api/v1/admin/campaigns/${campaign.id}`,
+    },
+    deadline: campaign.deadline,
+    createdAt: campaign.createdAt,
+  };
+}
+
+export function toAdminCampaignDetailDto(
+  campaign: Campaign,
+): AdminCampaignDetailDto {
+  return {
+    id: campaign.id,
+    title: campaign.title,
+    story: campaign.story,
+    status: campaign.status,
+    category: campaign.category,
+    progressPercent: campaign.progressPercent,
+    raisedAmount: Number(campaign.raisedAmount),
+    goalAmount: Number(campaign.goalAmount),
+    donorCount: campaign.donorCount,
+    reportCount: campaign.reportCount,
+    deadline: campaign.deadline,
+    thumbnailUrl: campaign.thumbnailUrl ?? null,
+    mediaUrls: campaign.mediaUrls ?? null,
+    suspendReason: campaign.suspendReason ?? null,
+    suspendedAt: campaign.suspendedAt ?? null,
+    closedAt: campaign.closedAt ?? null,
+    approvedAt: campaign.approvedAt ?? null,
+    creator: {
+      id: campaign.creatorId,
+      fullName: campaign.creator?.fullName ?? 'Unknown organizer',
+      avatarUrl: campaign.creator?.avatarUrl ?? null,
+    },
+    publicView: {
+      campaignId: campaign.id,
+      endpoint: `/api/v1/campaigns/${campaign.id}`,
+    },
+    createdAt: campaign.createdAt,
+    updatedAt: campaign.updatedAt,
+  };
+}
+
+export function toAdminCampaignAnalyticsDto(
+  campaignId: string,
+  days: number,
+  chartData: DonationChartDataPointDto[],
+): AdminCampaignAnalyticsResponseDto {
+  return {
+    campaignId,
+    days,
+    chartData,
   };
 }

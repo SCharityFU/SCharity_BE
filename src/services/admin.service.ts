@@ -8,7 +8,10 @@ import { UserRepository } from '../repositories/user.repository';
 import { ReportRepository } from '../repositories/report.repository';
 import {
   toReportDetailDto,
+  toAdminCampaignAnalyticsDto,
+  toAdminCampaignDetailDto,
   toCampaignDonationAdminDto,
+  toAdminCampaignListItemDto,
 } from '../utils/dto-mapper';
 import { Campaign, CampaignStatus } from '../entities/Campaign';
 import { CampaignRequestStatus } from '../entities/CampaignRequest';
@@ -178,13 +181,15 @@ export class AdminService {
       category?: string;
     },
   ) {
-    return CampaignRepository.findWithPagination(
+    const [campaigns, total] = await CampaignRepository.findWithPagination(
       page,
       limit,
       filters,
       'createdAt',
       'DESC',
     );
+
+    return [campaigns.map(toAdminCampaignListItemDto), total] as const;
   }
 
   async getCampaignDetails(id: string) {
@@ -193,7 +198,23 @@ export class AdminService {
       relations: ['creator'],
     });
     if (!campaign) throw new NotFoundError('Campaign not found');
-    return campaign;
+    return toAdminCampaignDetailDto(campaign);
+  }
+
+  async getCampaignAnalytics(id: string, days = 30) {
+    const campaign = await CampaignRepository.findOne({
+      where: { id },
+    });
+    if (!campaign) throw new NotFoundError('Campaign not found');
+
+    const rawChartData = await DonationRepository.getDonationChartData(id, days);
+    const chartData = rawChartData.map((point) => ({
+      date: point.date,
+      amount: Number(point.amount),
+      count: Number(point.count),
+    }));
+
+    return toAdminCampaignAnalyticsDto(id, days, chartData);
   }
 
   async suspendCampaign(id: string, adminId: string, reason: string) {
@@ -397,6 +418,8 @@ export class AdminService {
     search?: string,
     sortBy = 'createdAt',
     sortOrder: 'ASC' | 'DESC' = 'DESC',
+    startDate?: string,
+    endDate?: string,
   ) {
     const campaign = await CampaignRepository.findOne({
       where: { id: campaignId },
@@ -410,6 +433,8 @@ export class AdminService {
       search,
       sortBy,
       sortOrder,
+      startDate ? new Date(startDate) : undefined,
+      endDate ? new Date(endDate) : undefined,
     );
     return [donations.map(toCampaignDonationAdminDto), total] as const;
   }

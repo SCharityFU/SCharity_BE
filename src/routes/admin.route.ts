@@ -584,6 +584,75 @@ router.get('/withdraw-requests/:id', adminController.getWithdrawRequestById);
 
 /**
  * @swagger
+ * /admin/withdrawals/{id}/process:
+ *   put:
+ *     summary: Process withdrawal request (approve/reject)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/idParam'
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ProcessWithdrawRequest'
+ *     responses:
+ *       200:
+ *         description: Withdrawal request processed successfully
+ */
+router.put(
+  '/withdrawals/:id/process',
+  validate(processWithdrawRequestSchema),
+  adminController.processWithdrawRequest,
+);
+
+/**
+ * @swagger
+ * /admin/bank-change-requests:
+ *   get:
+ *     summary: List all pending bank account change requests
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/pageParam'
+ *       - $ref: '#/components/parameters/limitParam'
+ *     responses:
+ *       200:
+ *         description: Paginated list of recent pending bank change requests
+ */
+router.get('/bank-change-requests', adminController.listBankChangeRequests);
+
+/**
+ * @swagger
+ * /admin/bank-change-requests/{id}/process:
+ *   put:
+ *     summary: Process bank account change request (approve/reject)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/idParam'
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ProcessWithdrawRequest'
+ *     responses:
+ *       200:
+ *         description: Bank change request processed successfully
+ */
+router.put(
+  '/bank-change-requests/:id/process',
+  validate(processWithdrawRequestSchema), // reuse the schema since it's just action+rejectReason
+  adminController.processBankChangeRequest,
+);
+
+/**
+ * @swagger
  * /admin/withdraw-requests/{id}/process:
  *   post:
  *     summary: Approve or reject a withdrawal request

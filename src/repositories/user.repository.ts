@@ -1,6 +1,7 @@
 import { AppDataSource } from '../config/database';
 import { User, UserStatus } from '../entities/User';
 import { BankAccount } from '../entities/BankAccount';
+import { BankAccountChangeRequest, BankChangeStatus } from '../entities/BankAccountChangeRequest';
 
 export const UserRepository = AppDataSource.getRepository(User).extend({
   async findByEmail(email: string): Promise<User | null> {
@@ -61,5 +62,24 @@ export const BankAccountRepository = AppDataSource.getRepository(BankAccount).ex
 
   async findDefaultByUserId(userId: string): Promise<BankAccount | null> {
     return this.findOne({ where: { userId, isDefault: true } });
+  },
+});
+
+export const BankAccountChangeRequestRepository = AppDataSource.getRepository(
+  BankAccountChangeRequest,
+).extend({
+  async findPendingByBankAccountId(bankAccountId: string) {
+    return this.findOne({
+      where: { bankAccountId, status: BankChangeStatus.PENDING },
+      order: { createdAt: 'DESC' },
+    });
+  },
+
+  async findLatestByBankAccountId(bankAccountId: string) {
+    return this.findOne({
+      where: { bankAccountId },
+      order: { createdAt: 'DESC' },
+      relations: ['requester'],
+    });
   },
 });

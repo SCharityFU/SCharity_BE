@@ -3,7 +3,7 @@ import { userController } from '../controllers/user.controller';
 import { authenticate } from '../middlewares/auth.middleware';
 import { validate } from '../middlewares/validate.middleware';
 import { uploadImage } from '../middlewares/upload.middleware';
-import { updateUserProfileSchema, addBankAccountSchema, verifyKycSchema } from '../validators/user.validator';
+import { updateUserProfileSchema, addBankAccountSchema, verifyKycSchema, requestBankInfoChangeSchema } from '../validators/user.validator';
 
 /**
  * @swagger
@@ -228,5 +228,72 @@ router.put('/me/bank-accounts/:id/default', userController.setDefaultBankAccount
  *         description: User already verified
  */
 router.post('/me/kyc', validate(verifyKycSchema), userController.verifyKyc);
+
+/**
+ * @swagger
+ * /users/me/bank-account-change-requests:
+ *   post:
+ *     summary: Request a bank account info change (requires admin approval)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - bankAccountId
+ *               - bankName
+ *               - accountNumber
+ *               - accountHolderName
+ *             properties:
+ *               bankAccountId:
+ *                 type: string
+ *                 format: uuid
+ *               bankName:
+ *                 type: string
+ *               accountNumber:
+ *                 type: string
+ *               accountHolderName:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Bank info change request submitted
+ *       409:
+ *         description: A pending change request already exists
+ */
+router.post(
+  '/me/bank-account-change-requests',
+  validate(requestBankInfoChangeSchema),
+  userController.requestBankInfoChange,
+);
+
+/**
+ * @swagger
+ * /users/me/bank-account-change-requests/{bankAccountId}:
+ *   get:
+ *     summary: Get bank account change request status
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: bankAccountId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Change request status
+ *       404:
+ *         description: Bank account not found
+ */
+router.get(
+  '/me/bank-account-change-requests/:bankAccountId',
+  userController.getBankChangeRequestStatus,
+);
 
 export default router;

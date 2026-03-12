@@ -4,7 +4,7 @@ import {
 } from '../repositories/campaign.repository';
 import { DonationRepository } from '../repositories/donation.repository';
 import { WithdrawRepository } from '../repositories/withdraw.repository';
-import { UserRepository } from '../repositories/user.repository';
+import { UserRepository, BankAccountRepository, BankAccountChangeRequestRepository } from '../repositories/user.repository';
 import { ReportRepository } from '../repositories/report.repository';
 import {
   toReportDetailDto,
@@ -16,6 +16,7 @@ import {
 import { Campaign, CampaignStatus } from '../entities/Campaign';
 import { CampaignRequestStatus } from '../entities/CampaignRequest';
 import { WithdrawStatus } from '../entities/WithdrawRequest';
+import { BankChangeStatus } from '../entities/BankAccountChangeRequest';
 import { ReportStatus } from '../entities/Report';
 import { AuditLog, AuditAction } from '../entities/AuditLog';
 import { AppDataSource } from '../config/database';
@@ -446,6 +447,87 @@ export class AdminService {
     });
     if (!request) throw new NotFoundError('Withdraw request not found');
     return request;
+  }
+
+  // ── Bank account change requests ────────────────────────────────────────
+
+  async listBankChangeRequests(page: number, limit: number) {
+    return BankAccountChangeRequestRepository.findAndCount({
+      where: { status: BankChangeStatus.PENDING },
+      relations: ['requester', 'bankAccount'],
+      order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+  }
+
+  async processBankChangeRequest(
+    id: string,
+    adminId: string,
+    action: 'approve' | 'reject',
+    rejectReason?: string,
+  ) {
+    const changeRequest = await BankAccountChangeRequestRepository.findOne({
+      where: { id },
+      relations: ['requester', 'bankAccount'],
+    });
+    if (!changeRequest) throw new NotFoundError('Bank change request not found');
+
+    if (changeRequest.status !== BankChangeStatus.PENDING) {
+      throw new ConflictError('Bank change request already processed');
+    }
+
+    changeRequest.processedById = adminId;
+    changeRequest.processedAt = new Date();
+
+    if (action === 'approve') {
+      changeRequest.status = BankChangeStatus.APPROVED;
+
+      // Update actual bank account with new info
+      await BankAccountRepository.update(changeRequest.bankAccountId, {
+        bankName: changeRequest.newBankName,
+        accountNumber: changeRequest.newAccountNumber,
+        accountHolderName: changeRequest.newAccountHolderName,
+        isBankInfoApproved: true,
+      });
+
+      await emailQueue.add('sendBankChangeApprovedEmail', {
+        email: changeRequest.requester.email,
+        userName: changeRequest.requester.fullName,
+        bankName: changeRequest.newBankName,
+        accountNumber: changeRequest.newAccountNumber,
+      });
+    } else {
+      if (!rejectReason) throw new BadRequestError('Reject reason is required');
+      changeRequest.status = BankChangeStatus.REJECTED;
+      changeRequest.rejectReason = rejectReason;
+
+      // Re-enable bank account since request was rejected (keep old info)
+      await BankAccountRepository.update(changeRequest.bankAccountId, {
+        isBankInfoApproved: true,
+      });
+
+      await emailQueue.add('sendBankChangeRejectedEmail', {
+        email: changeRequest.requester.email,
+        userName: changeRequest.requester.fullName,
+        reason: rejectReason,
+      });
+    }
+
+    await BankAccountChangeRequestRepository.save(changeRequest);
+
+    await AuditLogRepository.save({
+      action:
+        action === 'approve'
+          ? AuditAction.BANK_CHANGE_APPROVED
+          : AuditAction.BANK_CHANGE_REJECTED,
+      actorId: adminId,
+      targetId: id,
+      targetType: 'BankAccountChangeRequest',
+      metadata: { action, rejectReason },
+    });
+
+    return changeRequest;
   }
 }
 

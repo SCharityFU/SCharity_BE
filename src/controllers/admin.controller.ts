@@ -172,17 +172,39 @@ export const adminController = {
     next: NextFunction,
   ) {
     try {
-      const { action, rejectReason } = req.body as {
-        action: 'approve' | 'reject';
-        rejectReason?: string;
-      };
+      const { action, rejectReason } = req.body;
       const result = await adminService.processWithdrawRequest(
         req.params.id,
         req.user!.id,
         action,
         rejectReason,
       );
-      sendSuccess(res, result, 'Withdraw request processed');
+      sendSuccess(res, result, `Withdraw request ${action}ed successfully`);
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async listBankChangeRequests(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { page, limit } = getPages(req.query);
+      const [data, total] = await adminService.listBankChangeRequests(page, limit);
+      sendPaginated(res, data, { total, page, limit });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async processBankChangeRequest(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { action, rejectReason } = req.body;
+      const result = await adminService.processBankChangeRequest(
+        req.params.id,
+        req.user!.id,
+        action,
+        rejectReason,
+      );
+      sendSuccess(res, result, `Bank change request ${action}ed successfully`);
     } catch (err) {
       next(err);
     }

@@ -37,3 +37,15 @@ export type UpdateUserProfileDto = z.infer<typeof updateUserProfileSchema>;
 export type AddBankAccountDto = z.infer<typeof addBankAccountSchema>;
 export type ReportCampaignDto = z.infer<typeof reportCampaignSchema>;
 export type VerifyKycDto = z.infer<typeof verifyKycSchema>;
+
+export const requestBankInfoChangeSchema = z.object({
+  bankAccountId: z.string().uuid('Invalid bank account ID'),
+  bankName: z.string().min(1, 'Bank name is required'),
+  accountNumber: z
+    .string()
+    .min(1, 'Account number is required')
+    .regex(/^\d+$/, 'Account number must contain only digits'),
+  accountHolderName: z.string().min(1, 'Account holder name is required'),
+});
+
+export type RequestBankInfoChangeDto = z.infer<typeof requestBankInfoChangeSchema>;

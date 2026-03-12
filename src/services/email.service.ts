@@ -217,4 +217,66 @@ export const emailService = {
       ),
     );
   },
+
+  async sendBankChangeRequestNotification(
+    requesterName: string,
+    requesterEmail: string,
+    currentBankName: string,
+    currentAccountNumber: string,
+    currentAccountHolderName: string,
+    newBankName: string,
+    newAccountNumber: string,
+    newAccountHolderName: string,
+    changeRequestId: string,
+  ) {
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@scharity.org';
+    const loginLink = `${process.env.CLIENT_URL || 'http://localhost:3001'}/admin/login`;
+
+    await sendMail(
+      adminEmail,
+      'New Bank Account Change Request - SCharity',
+      `<p>Admin action required</p>
+      <p>User <strong>${requesterName}</strong> (${requesterEmail}) has requested to change their bank account information.</p>
+      <h3>Current Info:</h3>
+      <ul>
+        <li>Bank: ${currentBankName}</li>
+        <li>Account: ${currentAccountNumber}</li>
+        <li>Holder: ${currentAccountHolderName}</li>
+      </ul>
+      <h3>Requested New Info:</h3>
+      <ul>
+        <li>Bank: ${newBankName}</li>
+        <li>Account: ${newAccountNumber}</li>
+        <li>Holder: ${newAccountHolderName}</li>
+      </ul>
+      <p>Log in to the <a href="${loginLink}">Admin Dashboard</a> to review and approve/reject this request (ID: ${changeRequestId}).</p>`,
+    );
+  },
+
+  async sendBankChangeApprovedEmail(
+    email: string,
+    userName: string,
+    bankName: string,
+    accountNumber: string,
+  ) {
+    await sendMail(
+      email,
+      'Bank Account Change Approved - SCharity',
+      `<p>Hi ${userName},</p>
+       <p>Great news! Your request to change your bank account information to <strong>${bankName} - ${accountNumber}</strong> has been approved.</p>
+       <p>You can now use this account to withdraw funds from your closed campaigns.</p>`,
+    );
+  },
+
+  async sendBankChangeRejectedEmail(email: string, userName: string, reason: string) {
+    await sendMail(
+      email,
+      'Bank Account Change Rejected - SCharity',
+      `<p>Hi ${userName},</p>
+       <p>Unfortunately, your request to change your bank account information has been rejected.</p>
+       <p><strong>Reason:</strong> ${reason}</p>
+       <p>Your previous bank account information remains active.</p>`,
+    );
+  },
 };
+

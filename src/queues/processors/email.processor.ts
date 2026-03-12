@@ -95,6 +95,33 @@ const emailWorker = new Worker(
         );
         break;
 
+      case 'sendBankChangeRequestNotification':
+        await emailService.sendBankChangeRequestNotification(
+          data.requesterName,
+          data.requesterEmail,
+          data.currentBankName,
+          data.currentAccountNumber,
+          data.currentAccountHolderName,
+          data.newBankName,
+          data.newAccountNumber,
+          data.newAccountHolderName,
+          data.changeRequestId,
+        );
+        break;
+
+      case 'sendBankChangeApprovedEmail':
+        await emailService.sendBankChangeApprovedEmail(
+          data.email,
+          data.userName,
+          data.bankName,
+          data.accountNumber,
+        );
+        break;
+
+      case 'sendBankChangeRejectedEmail':
+        await emailService.sendBankChangeRejectedEmail(data.email, data.userName, data.reason);
+        break;
+
       default:
         console.warn(`[EmailWorker] Unknown job type: ${name}`);
     }

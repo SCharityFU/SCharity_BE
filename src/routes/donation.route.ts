@@ -56,6 +56,26 @@ router.post(
 
 /**
  * @swagger
+ * /donations/payment/callback:
+ *   get:
+ *     summary: Verify PayOS payment after redirect
+ *     tags: [Donations]
+ *     parameters:
+ *       - in: query
+ *         name: orderCode
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Payment verified
+ *       400:
+ *         description: Payment not completed
+ */
+router.get('/payment/callback', donationController.paymentCallback);
+
+/**
+ * @swagger
  * /donations/me/history:
  *   get:
  *     summary: Get own donation history

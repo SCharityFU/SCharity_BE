@@ -333,7 +333,7 @@ export class CampaignService {
     if (dto.content !== undefined) update.content = dto.content;
     if (dto.category !== undefined) update.category = dto.category;
     if (mediaUrls !== undefined) update.mediaUrls = mediaUrls;
-
+    update.isDraft = dto.isDraft === true;
     update.isEdited = true;
     update.editedAt = new Date();
 

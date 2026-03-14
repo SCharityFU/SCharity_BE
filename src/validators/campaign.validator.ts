@@ -127,6 +127,12 @@ export const createCampaignUpdateSchema = z.object({
   isDraft: z.string().optional().default('false'),
 });
 
+export const updateCampaignUpdateSchema = z.object({
+  title: z.string().min(5, 'Title must be at least 5 characters').max(100).optional(),
+  content: z.string().min(10, 'Content must be at least 10 characters').optional(),
+  category: z.nativeEnum(UpdateCategory).optional(),
+});
+
 export type CreateCampaignRequestDto = z.infer<typeof createCampaignRequestSchema>;
 export type ReviewCampaignRequestDto = z.infer<typeof reviewCampaignRequestSchema>;
 export type UpdateCampaignDto = z.infer<typeof updateCampaignSchema>;
@@ -134,4 +140,5 @@ export type UpdateCampaignRequestDto = z.infer<typeof updateCampaignRequestSchem
 export type SuspendCampaignDto = z.infer<typeof suspendCampaignSchema>;
 export type CampaignQueryDto = z.infer<typeof campaignQuerySchema>;
 export type CreateCampaignUpdateDto = z.infer<typeof createCampaignUpdateSchema>;
+export type UpdateCampaignUpdateDto = z.infer<typeof updateCampaignUpdateSchema>;
 export type UpdateBankInfoDto = z.infer<typeof updateBankInfoSchema>;

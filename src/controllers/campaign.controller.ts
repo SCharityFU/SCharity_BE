@@ -264,4 +264,36 @@ export const campaignController = {
       next(err);
     }
   },
+
+  // CampaignCreator: update draft campaign update
+  async updateCampaignUpdate(req: Request, res: Response, next: NextFunction) {
+    try {
+      const files = req.files as Express.Multer.File[] | undefined;
+      let mediaUrls: string[] | undefined = undefined;
+
+      if (files && files.length > 0) {
+        mediaUrls = [];
+        for (let i = 0; i < files.length; i++) {
+          const url = await storageService.uploadUpdateMedia(
+            files[i].buffer,
+            req.params.id,
+            i,
+            files[i].mimetype,
+          );
+          mediaUrls.push(url);
+        }
+      }
+
+      const update = await campaignService.updateCampaignUpdate(
+        req.params.id,
+        req.params.updateId,
+        req.user!.id,
+        req.body,
+        mediaUrls,
+      );
+      sendSuccess(res, update, 'Campaign update updated');
+    } catch (err) {
+      next(err);
+    }
+  },
 };

@@ -418,6 +418,23 @@
  *         category:
  *           type: string
  *           enum: [progress, financial, general, completion]
+ *         isDraft:
+ *           type: string
+ *           enum: ['true', 'false']
+ *           default: 'false'
+ *
+ *     UpdateCampaignUpdateRequest:
+ *       type: object
+ *       properties:
+ *         title:
+ *           type: string
+ *           minLength: 5
+ *         content:
+ *           type: string
+ *           minLength: 20
+ *         category:
+ *           type: string
+ *           enum: [progress, financial, general, completion]
  *           default: general
  *         isDraft:
  *           type: boolean

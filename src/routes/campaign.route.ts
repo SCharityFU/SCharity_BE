@@ -10,6 +10,7 @@ import {
   updateCampaignRequestSchema,
   campaignQuerySchema,
   createCampaignUpdateSchema,
+  updateCampaignUpdateSchema,
   updateBankInfoSchema,
 } from '../validators/campaign.validator';
 import { createCommentSchema } from '../validators/donation.validator';
@@ -739,6 +740,63 @@ router.post(
   uploadMultiple,
   validate(createCampaignUpdateSchema),
   campaignController.createCampaignUpdate,
+);
+
+/**
+ * @swagger
+ * /campaigns/{id}/updates/{updateId}:
+ *   put:
+ *     summary: Update a draft campaign update (owner only)
+ *     tags: [Campaigns]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/idParam'
+ *       - in: path
+ *         name: updateId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Campaign update ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             allOf:
+ *               - $ref: '#/components/schemas/UpdateCampaignUpdateRequest'
+ *               - type: object
+ *                 properties:
+ *                   files:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                       format: binary
+ *                     description: Optional media attachments
+ *     responses:
+ *       200:
+ *         description: Update updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       $ref: '#/components/schemas/CampaignUpdate'
+ *       403:
+ *         description: Update is not a draft or not the campaign owner
+ *       404:
+ *         description: Campaign update not found
+ */
+router.put(
+  '/:id/updates/:updateId',
+  authenticate,
+  uploadMultiple,
+  validate(updateCampaignUpdateSchema),
+  campaignController.updateCampaignUpdate,
 );
 
 export default router;

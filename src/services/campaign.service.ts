@@ -13,6 +13,7 @@ import {
   CreateCampaignRequestDto,
   CampaignQueryDto,
   CreateCampaignUpdateDto,
+  UpdateCampaignUpdateDto,
   UpdateBankInfoDto,
   UpdateCampaignRequestDto,
 } from '../validators/campaign.validator';
@@ -295,6 +296,34 @@ export class CampaignService {
       }
     }
 
+    return update;
+  }
+
+  async updateCampaignUpdate(
+    campaignId: string,
+    updateId: string,
+    creatorId: string,
+    dto: UpdateCampaignUpdateDto,
+    mediaUrls?: string[],
+  ) {
+    const update = await CampaignUpdateRepository.findOne({
+      where: { id: updateId, campaignId, creatorId },
+    });
+    if (!update) throw new NotFoundError('Campaign update not found');
+
+    if (!update.isDraft) {
+      throw new ForbiddenError('Can only update draft campaign updates');
+    }
+
+    if (dto.title !== undefined) update.title = dto.title;
+    if (dto.content !== undefined) update.content = dto.content;
+    if (dto.category !== undefined) update.category = dto.category;
+    if (mediaUrls !== undefined) update.mediaUrls = mediaUrls;
+
+    update.isEdited = true;
+    update.editedAt = new Date();
+
+    await CampaignUpdateRepository.save(update);
     return update;
   }
 

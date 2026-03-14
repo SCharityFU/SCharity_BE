@@ -106,7 +106,8 @@ export const campaignController = {
   async getMyRequests(req: Request, res: Response, next: NextFunction) {
     try {
       const { page, limit } = getPages(req.query);
-      const [data, total] = await campaignService.getMyRequests(req.user!.id, page, limit);
+      const status = req.query.status as string | undefined;
+      const [data, total] = await campaignService.getMyRequests(req.user!.id, page, limit, status);
       sendPaginated(res, data, { total, page, limit });
     } catch (err) {
       next(err);

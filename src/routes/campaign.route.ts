@@ -97,6 +97,12 @@ router.post('/requests', authenticate, uploadCampaignFiles, parseMultipartBody, 
  *     parameters:
  *       - $ref: '#/components/parameters/pageParam'
  *       - $ref: '#/components/parameters/limitParam'
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [pending, approved, rejected]
+ *         description: Filter by campaign request status
  *     responses:
  *       200:
  *         description: Paginated list of own campaign requests

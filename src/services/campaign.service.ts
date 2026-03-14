@@ -48,9 +48,13 @@ export class CampaignService {
     return request;
   }
 
-  async getMyRequests(creatorId: string, page: number, limit: number) {
+  async getMyRequests(creatorId: string, page: number, limit: number, status?: string) {
+    const where: any = { requesterId: creatorId };
+    if (status && ['pending', 'approved', 'rejected'].includes(status.toLowerCase())) {
+      where.status = status.toLowerCase();
+    }
     return CampaignRequestRepository.findAndCount({
-      where: { requesterId: creatorId },
+      where,
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,

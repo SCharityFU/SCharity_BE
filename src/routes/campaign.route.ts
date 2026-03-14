@@ -408,6 +408,12 @@ router.get('/:id', optionalAuthenticate, campaignController.getCampaign);
  *       - $ref: '#/components/parameters/idParam'
  *       - $ref: '#/components/parameters/pageParam'
  *       - $ref: '#/components/parameters/limitParam'
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [all, draft, published]
+ *         description: Filter by update status (all, draft, or published)
  *     responses:
  *       200:
  *         description: Paginated list of campaign updates
@@ -751,7 +757,7 @@ router.get('/:id/analytics', authenticate, campaignController.getCampaignAnalyti
 router.post(
   '/:id/updates',
   authenticate,
-  uploadMultiple,
+  uploadMultiple, 
   validate(createCampaignUpdateSchema),
   campaignController.createCampaignUpdate,
 );

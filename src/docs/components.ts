@@ -419,9 +419,8 @@
  *           type: string
  *           enum: [progress, financial, general, completion]
  *         isDraft:
- *           type: string
- *           enum: ['true', 'false']
- *           default: 'false'
+ *           type: boolean
+ *           default: 'true'
  *
  *     UpdateCampaignUpdateRequest:
  *       type: object
@@ -438,7 +437,7 @@
  *           default: general
  *         isDraft:
  *           type: boolean
- *           default: false
+ *           default: true
  *
  *     CampaignAnalytics:
  *       type: object

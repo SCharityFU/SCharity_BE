@@ -244,11 +244,21 @@ export class CampaignService {
     } as typeof query);
   }
 
-  async getCampaignUpdates(campaignId: string, page: number, limit: number) {
+  async getCampaignUpdates(campaignId: string, page: number, limit: number, status?: string) {
     const campaign = await CampaignRepository.findOne({ where: { id: campaignId } });
     if (!campaign) throw new NotFoundError('Campaign not found');
 
-    return CampaignUpdateRepository.findByCampaignId(campaignId, page, limit);
+    const where: any = { campaignId };
+
+    // Filter by status: 'draft' (isDraft = true), 'published' (isDraft = false), 'all' (no filter)
+    if (status === 'draft') {
+      where.isDraft = true;
+    } else if (status === 'published') {
+      where.isDraft = false;
+    }
+    // 'all' or undefined means no filter
+
+    return CampaignUpdateRepository.findByCampaignId(campaignId, page, limit, where);
   }
 
   async createCampaignUpdate(
@@ -273,7 +283,7 @@ export class CampaignService {
 
     const update = CampaignUpdateRepository.create({
       ...dto,
-      isDraft: dto.isDraft === 'true',
+      isDraft: dto.isDraft === true,
       campaignId,
       creatorId,
       mediaUrls,

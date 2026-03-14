@@ -124,13 +124,14 @@ export const createCampaignUpdateSchema = z.object({
   title: z.string().min(5, 'Title must be at least 5 characters').max(100),
   content: z.string().min(10, 'Content must be at least 10 characters'),
   category: z.nativeEnum(UpdateCategory).optional().default(UpdateCategory.PROGRESS),
-  isDraft: z.string().optional().default('false'),
+  isDraft: z.boolean().optional().default(true),
 });
 
 export const updateCampaignUpdateSchema = z.object({
   title: z.string().min(5, 'Title must be at least 5 characters').max(100).optional(),
   content: z.string().min(10, 'Content must be at least 10 characters').optional(),
   category: z.nativeEnum(UpdateCategory).optional(),
+  isDraft: z.boolean().optional().default(true),
 });
 
 export type CreateCampaignRequestDto = z.infer<typeof createCampaignRequestSchema>;

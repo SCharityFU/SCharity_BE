@@ -10,6 +10,7 @@ import {
   toReportDetailDto,
   toAdminCampaignAnalyticsDto,
   toAdminCampaignDetailDto,
+  toCampaignRequestResponseDto,
   toCampaignDonationAdminDto,
   toAdminCampaignListItemDto,
 } from '../utils/dto-mapper';
@@ -22,7 +23,6 @@ import { AppDataSource } from '../config/database';
 import { DashboardStats } from '../types';
 import { NotFoundError, BadRequestError, ConflictError } from '../utils/errors';
 import { emailQueue } from '../queues/email.queue';
-import { getPaginationParams } from '../utils/pagination';
 
 import { UserRole } from '../entities/User';
 import { Donation } from '../entities/Donation';
@@ -80,9 +80,12 @@ export class AdminService {
     limit: number,
     status?: CampaignRequestStatus,
   ) {
-    const { skip } = getPaginationParams(page, limit);
-    void skip;
-    return CampaignRequestRepository.findWithPagination(page, limit, status);
+    const [requests, total] = await CampaignRequestRepository.findWithPagination(
+      page,
+      limit,
+      status,
+    );
+    return [requests.map(toCampaignRequestResponseDto), total] as const;
   }
 
   async getCampaignRequestById(id: string) {
@@ -91,7 +94,7 @@ export class AdminService {
       relations: ['requester', 'reviewedBy'],
     });
     if (!request) throw new NotFoundError('Campaign request not found');
-    return request;
+    return toCampaignRequestResponseDto(request);
   }
 
   async reviewCampaignRequest(
@@ -157,6 +160,11 @@ export class AdminService {
 
     await CampaignRequestRepository.save(request);
 
+    const savedRequest = await CampaignRequestRepository.findOne({
+      where: { id: request.id },
+      relations: ['requester', 'reviewedBy'],
+    });
+
     // Audit log
     await AuditLogRepository.save({
       action:
@@ -169,7 +177,7 @@ export class AdminService {
       metadata: { action, rejectReason },
     });
 
-    return request;
+    return toCampaignRequestResponseDto(savedRequest ?? request);
   }
 
   async listCampaigns(

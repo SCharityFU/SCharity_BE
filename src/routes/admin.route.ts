@@ -10,6 +10,7 @@ import {
 import { processWithdrawRequestSchema } from '../validators/withdraw.validator';
 import {
   adminCampaignAnalyticsQuerySchema,
+  adminCampaignRequestsQuerySchema,
   adminCampaignTransactionsQuerySchema,
 } from '../validators/admin.validator';
 
@@ -124,7 +125,11 @@ router.get('/dashboard/chart', adminController.getDonationChartData);
  *                     pagination:
  *                       $ref: '#/components/schemas/PaginationMeta'
  */
-router.get('/campaign-requests', adminController.listCampaignRequests);
+router.get(
+  '/campaign-requests',
+  validateQuery(adminCampaignRequestsQuerySchema),
+  adminController.listCampaignRequests,
+);
 
 /**
  * @swagger

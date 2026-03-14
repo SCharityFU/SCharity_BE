@@ -233,6 +233,15 @@ export class AdminService {
       throw new ConflictError('Campaign is already suspended');
     }
 
+    if (
+      campaign.status !== CampaignStatus.ACTIVE &&
+      campaign.status !== CampaignStatus.CLOSED
+    ) {
+      throw new BadRequestError(
+        'Only active or closed campaigns can be suspended',
+      );
+    }
+
     campaign.status = CampaignStatus.SUSPENDED;
     campaign.suspendReason = reason;
     campaign.suspendedAt = new Date();
@@ -283,7 +292,9 @@ export class AdminService {
       throw new BadRequestError('Campaign is not suspended');
     }
 
-    campaign.status = CampaignStatus.ACTIVE;
+    campaign.status = campaign.isDeadlineReached
+      ? CampaignStatus.CLOSED
+      : CampaignStatus.ACTIVE;
     campaign.suspendReason = null as unknown as string;
     campaign.suspendedAt = null as unknown as Date;
     await CampaignRepository.save(campaign);
@@ -293,8 +304,21 @@ export class AdminService {
       actorId: adminId,
       targetId: id,
       targetType: 'Campaign',
-      metadata: {},
+      metadata: { restoredStatus: campaign.status },
     });
+
+    // Notify campaign creator
+    const creator = await UserRepository.findOne({
+      where: { id: campaign.creatorId },
+    });
+    if (creator) {
+      await emailQueue.add('sendCampaignUnsuspendedEmail', {
+        email: creator.email,
+        creatorName: creator.fullName,
+        campaignTitle: campaign.title,
+        restoredStatus: campaign.status,
+      });
+    }
 
     return campaign;
   }
@@ -394,6 +418,14 @@ export class AdminService {
     report.resolvedById = adminId;
     report.resolvedAt = new Date();
     await ReportRepository.save(report);
+
+    await AuditLogRepository.save({
+      action: AuditAction.REPORT_RESOLVED,
+      actorId: adminId,
+      targetId: id,
+      targetType: 'Report',
+      metadata: { campaignId: report.campaignId },
+    });
 
     // Reload to get resolvedBy relation
     const saved = await ReportRepository.findOne({

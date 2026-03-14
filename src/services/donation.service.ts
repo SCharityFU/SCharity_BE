@@ -6,8 +6,13 @@ import { NotFoundError, BadRequestError, ForbiddenError } from '../utils/errors'
 import { CreateDonationDto, CreateCommentDto } from '../validators/donation.validator';
 import { emailQueue } from '../queues/email.queue';
 import { UserRepository } from '../repositories/user.repository';
+import { payos } from '../utils/payos';
 
 export class DonationService {
+  /**
+   * Create a PENDING donation, then generate a PayOS payment link.
+   * Returns { donation, checkoutUrl } so the frontend can redirect the user.
+   */
   async createDonation(dto: CreateDonationDto, donorId?: string) {
     const campaign = await CampaignRepository.findOne({
       where: { id: dto.campaignId },
@@ -23,6 +28,9 @@ export class DonationService {
       donor = await UserRepository.findOne({ where: { id: donorId } });
     }
 
+    // PayOS requires orderCode as a positive integer < 9007199254740991
+    const orderCode = Number(String(Date.now()).slice(-8) + String(Math.floor(Math.random() * 100)).padStart(2, '0'));
+
     const donation = DonationRepository.create({
       campaignId: dto.campaignId,
       donorId: donorId ?? undefined,
@@ -31,39 +39,115 @@ export class DonationService {
       message: dto.message,
       isAnonymous: dto.isAnonymous ?? false,
       status: DonationStatus.PENDING,
+      transactionRef: String(orderCode),
     });
 
     await DonationRepository.save(donation);
 
-    // Update raised amount and donor count
-    await CampaignRepository.updateRaisedAmount(dto.campaignId, dto.amount);
+    // PayOS description: max 25 chars, only a-zA-Z0-9 and space
+    const description = `Donation ${orderCode}`
+      .replace(/[^a-zA-Z0-9 ]/g, '')
+      .substring(0, 25);
 
-    // Update donation status to success (simulated - replace with real payment gateway)
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:3001';
+
+    try {
+      const paymentLink = await payos.paymentRequests.create({
+        orderCode,
+        amount: dto.amount,
+        description,
+        returnUrl: `${clientUrl}/donations/callback?orderCode=${orderCode}`,
+        cancelUrl: `${clientUrl}/donations/callback?orderCode=${orderCode}&cancel=true`,
+      });
+
+      return {
+        donation,
+        checkoutUrl: paymentLink.checkoutUrl,
+        orderCode,
+      };
+    } catch (error: any) {
+      // Mark donation FAILED if PayOS rejects it
+      donation.status = DonationStatus.FAILED;
+      await DonationRepository.save(donation);
+      throw new BadRequestError(`PayOS Error: ${error.message}`);
+    }
+  }
+
+  /**
+   * Called after the user returns from PayOS.
+   * Verifies the payment status with PayOS, then marks the donation SUCCESS
+   * and performs post-payment side effects (update campaign, create comment, emails).
+   */
+  async handlePaymentCallback(orderCode: number) {
+    // 1. Verify status with PayOS
+    const paymentLink = await payos.paymentRequests.get(orderCode);
+
+    // 2. Find the PENDING donation
+    const donation = await DonationRepository.findOne({
+      where: { transactionRef: String(orderCode) },
+      relations: ['campaign', 'campaign.creator', 'donor'],
+    });
+    if (!donation) throw new NotFoundError('Donation not found for this order code');
+
+    // Idempotent: already processed
+    if (donation.status === DonationStatus.SUCCESS) {
+      return { donation, alreadyProcessed: true };
+    }
+
+    if (paymentLink.status !== 'PAID') {
+      // If cancelled or failed, update donation status
+      if (paymentLink.status === 'CANCELLED' || paymentLink.status === 'EXPIRED') {
+        donation.status = DonationStatus.FAILED;
+        await DonationRepository.save(donation);
+      }
+      throw new BadRequestError(`Payment not completed. Status: ${paymentLink.status}`);
+    }
+
+    // 3. Mark donation SUCCESS
     donation.status = DonationStatus.SUCCESS;
     await DonationRepository.save(donation);
 
-    // Send confirmation email if donor has email
-    const email = donor?.email;
-    if (email) {
+    // 4. Update campaign raised amount and donor count
+    await CampaignRepository.updateRaisedAmount(donation.campaignId, donation.amount);
+
+    // 5. Auto-create a Comment linked to this donation
+    if (donation.message) {
+      const comment = CommentRepository.create({
+        campaignId: donation.campaignId,
+        donorId: donation.donorId ?? undefined,
+        content: donation.message,
+        isAnonymous: donation.isAnonymous,
+        donationId: donation.id,
+      });
+      await CommentRepository.save(comment);
+    }
+
+    // 6. Email notifications
+    const campaign = donation.campaign;
+    const donor = donation.donor;
+    const donorName = donation.isAnonymous
+      ? 'Anonymous'
+      : (donor?.fullName ?? 'Donor');
+
+    if (donor?.email) {
       await emailQueue.add('sendDonationReceiptEmail', {
-        email,
-        donorName: donor?.fullName ?? 'Donor',
+        email: donor.email,
+        donorName: donor.fullName ?? 'Donor',
         campaignTitle: campaign.title,
-        amount: dto.amount,
+        amount: donation.amount,
         donationId: donation.id,
       });
     }
 
-    // Notify campaign creator
     await emailQueue.add('sendNewDonationNotification', {
       email: campaign.creator.email,
       creatorName: campaign.creator.fullName,
       campaignTitle: campaign.title,
-      amount: dto.amount,
-      donorName: dto.isAnonymous ? 'Anonymous' : (donor?.fullName ?? dto.message ?? 'Anonymous'),
+      amount: donation.amount,
+      donorName,
     });
 
-    return donation;
+    return { donation, alreadyProcessed: false };
   }
 
   async getDonationHistory(

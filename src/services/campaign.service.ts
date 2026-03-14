@@ -262,10 +262,6 @@ export class CampaignService {
       throw new ForbiddenError('Cannot post updates for this campaign in its current status');
     }
 
-    if (campaign.status === CampaignStatus.SUSPENDED) {
-      throw new ForbiddenError('Cannot post updates for a suspended campaign');
-    }
-
     const update = CampaignUpdateRepository.create({
       ...dto,
       isDraft: dto.isDraft === 'true',

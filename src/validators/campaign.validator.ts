@@ -73,8 +73,7 @@ export const reviewCampaignRequestSchema = z
   );
 
 export const updateCampaignSchema = z.object({
-  story: z.string().min(50).optional(),
-  thumbnailUrl: z.string().url().optional(),
+  story: z.string().min(50).optional()
 });
 
 export const updateCampaignRequestSchema = z.object({

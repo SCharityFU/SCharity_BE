@@ -168,11 +168,15 @@ export class CampaignService {
     creatorId: string,
     data: { story?: string; thumbnailUrl?: string },
   ) {
-    const campaign = await CampaignRepository.findOne({ where: { id, creatorId } });
+    const campaign = await CampaignRepository.findOne({ where: { id } });
     if (!campaign) throw new NotFoundError('Campaign not found');
 
-    if (campaign.status !== CampaignStatus.PENDING) {
-      throw new ForbiddenError('Campaign can only be updated when in pending status');
+    if (campaign.creatorId !== creatorId) {
+      throw new ForbiddenError('You do not have permission to update this campaign');
+    }
+
+    if (campaign.status !== CampaignStatus.ACTIVE) {
+      throw new ForbiddenError('Campaign can only be updated when in active status');
     }
 
     await CampaignRepository.update(id, data);

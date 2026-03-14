@@ -3,8 +3,7 @@ import { campaignController } from '../controllers/campaign.controller';
 import { donationController } from '../controllers/donation.controller';
 import { authenticate, optionalAuthenticate } from '../middlewares/auth.middleware';
 import { parseMultipartBody, validate, validateQuery } from '../middlewares/validate.middleware';
-import { uploadCampaignFiles, uploadMultiple } from '../middlewares/upload.middleware';
-import { uploadEvidence } from '../middlewares/upload.middleware';
+import { uploadCampaignFiles, uploadEvidence, uploadMultiple, uploadThumbnail } from '../middlewares/upload.middleware';
 import {
   createCampaignRequestSchema,
   updateCampaignSchema,
@@ -620,9 +619,16 @@ router.post(
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
- *             $ref: '#/components/schemas/UpdateCampaignRequest'
+ *             allOf:
+ *               - $ref: '#/components/schemas/UpdateCampaignRequest'
+ *               - type: object
+ *                 properties:
+ *                   thumbnail:
+ *                     type: string
+ *                     format: binary
+ *                     description: Optional campaign thumbnail image
  *     responses:
  *       200:
  *         description: Campaign updated
@@ -638,7 +644,7 @@ router.post(
  *       403:
  *         description: Not the campaign owner
  */
-router.put('/:id', authenticate, validate(updateCampaignSchema), campaignController.updateCampaign);
+router.put('/:id', authenticate, uploadThumbnail, validate(updateCampaignSchema), campaignController.updateCampaign);
 
 /**
  * @swagger

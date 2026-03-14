@@ -357,9 +357,6 @@
  *         story:
  *           type: string
  *           minLength: 50
- *         thumbnailUrl:
- *           type: string
- *           format: uri
  *
  *     ReviewCampaignRequestBody:
  *       type: object
@@ -716,5 +713,3 @@
  *         format: uuid
  *       description: Resource UUID
  */
-
-export {};

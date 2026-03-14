@@ -174,6 +174,20 @@ export const emailService = {
     );
   },
 
+  async sendCampaignUnsuspendedEmail(
+    email: string,
+    creatorName: string,
+    campaignTitle: string,
+    restoredStatus: string,
+  ) {
+    const statusText = restoredStatus === 'closed' ? 'đã đóng (hết hạn)' : 'đang hoạt động';
+    await sendMail(
+      email,
+      'Campaign Unsuspended - SCharity',
+      `<p>Hi ${creatorName},</p><p>Your campaign <strong>${campaignTitle}</strong> has been unsuspended and is now <strong>${statusText}</strong>.</p><p>Thank you for your patience.</p>`,
+    );
+  },
+
   async sendWithdrawApprovedEmail(
     email: string,
     creatorName: string,

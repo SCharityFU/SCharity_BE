@@ -4,6 +4,7 @@ import { storageService } from '../services/storage.service';
 import { mapCampaignDetailDto } from '../dtos/campaign';
 import { sendSuccess, sendCreated, sendPaginated } from '../utils/response';
 import { getPaginationParams } from '../utils/pagination';
+import { BadRequestError } from '../utils/errors';
 
 const getPages = (query: Record<string, unknown>) =>
   getPaginationParams(query.page as string, query.limit as string);
@@ -28,6 +29,28 @@ export const campaignController = {
     try {
       const campaign = await campaignService.getCampaignById(req.params.id);
       sendSuccess(res, mapCampaignDetailDto(campaign));
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // CampaignCreator: upload inline image for rich text editor
+  async uploadEditorImage(req: Request, res: Response, next: NextFunction) {
+    try {
+      const imageFile = req.file;
+
+      if (!imageFile) {
+        throw new BadRequestError('Image file is required');
+      }
+
+      const extension = imageFile.mimetype.split('/')[1] ?? 'jpg';
+      const imageUrl = await storageService.uploadFile(
+        imageFile.buffer,
+        `campaigns/editor/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`,
+        imageFile.mimetype,
+      );
+
+      sendSuccess(res, { url: imageUrl }, 'Editor image uploaded successfully');
     } catch (err) {
       next(err);
     }

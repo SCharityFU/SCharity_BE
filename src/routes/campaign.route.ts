@@ -3,7 +3,13 @@ import { campaignController } from '../controllers/campaign.controller';
 import { donationController } from '../controllers/donation.controller';
 import { authenticate, optionalAuthenticate } from '../middlewares/auth.middleware';
 import { parseMultipartBody, validate, validateQuery } from '../middlewares/validate.middleware';
-import { uploadCampaignFiles, uploadEvidence, uploadMultiple, uploadThumbnail } from '../middlewares/upload.middleware';
+import {
+  uploadCampaignFiles,
+  uploadEditorImage,
+  uploadEvidence,
+  uploadMultiple,
+  uploadThumbnail,
+} from '../middlewares/upload.middleware';
 import {
   createCampaignRequestSchema,
   updateCampaignSchema,
@@ -189,6 +195,8 @@ router.get('/requests/mine/:requestId', authenticate, campaignController.getMyRe
  *         description: Validation error
  */
 router.put('/requests/:requestId/bank-info', authenticate, validate(updateBankInfoSchema), campaignController.updateRequestBankInfo);
+
+router.post('/editor-image', authenticate, uploadEditorImage, campaignController.uploadEditorImage);
 
 /**
  * @swagger

@@ -5,7 +5,6 @@ import { CampaignStatus } from '../entities/Campaign';
 import { NotFoundError, BadRequestError, ForbiddenError } from '../utils/errors';
 import { CreateDonationDto, CreateCommentDto } from '../validators/donation.validator';
 import { emailQueue } from '../queues/email.queue';
-import { UserRepository } from '../repositories/user.repository';
 import { payos } from '../utils/payos';
 
 export class DonationService {
@@ -23,10 +22,10 @@ export class DonationService {
       throw new BadRequestError('This campaign is not currently accepting donations');
     }
 
-    let donor = null;
-    if (donorId) {
-      donor = await UserRepository.findOne({ where: { id: donorId } });
-    }
+    // let donor = null;
+    // if (donorId) {
+    //   donor = await UserRepository.findOne({ where: { id: donorId } });
+    // }
 
     // PayOS requires orderCode as a positive integer < 9007199254740991
     const orderCode = Number(String(Date.now()).slice(-8) + String(Math.floor(Math.random() * 100)).padStart(2, '0'));
@@ -45,9 +44,7 @@ export class DonationService {
     await DonationRepository.save(donation);
 
     // PayOS description: max 25 chars, only a-zA-Z0-9 and space
-    const description = `Donation ${orderCode}`
-      .replace(/[^a-zA-Z0-9 ]/g, '')
-      .substring(0, 25);
+    const description = `Donation ${orderCode}`.replace(/[^a-zA-Z0-9 ]/g, '').substring(0, 25);
 
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:3001';
 
@@ -125,9 +122,7 @@ export class DonationService {
     // 6. Email notifications
     const campaign = donation.campaign;
     const donor = donation.donor;
-    const donorName = donation.isAnonymous
-      ? 'Anonymous'
-      : (donor?.fullName ?? 'Donor');
+    const donorName = donation.isAnonymous ? 'Anonymous' : (donor?.fullName ?? 'Donor');
 
     if (donor?.email) {
       await emailQueue.add('sendDonationReceiptEmail', {

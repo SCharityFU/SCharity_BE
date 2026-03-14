@@ -3,6 +3,7 @@ import { userService } from '../services/user.service';
 import { campaignService } from '../services/campaign.service';
 import { storageService } from '../services/storage.service';
 import { sendSuccess, sendCreated, sendNoContent } from '../utils/response';
+import { BadRequestError } from '../utils/errors';
 
 export const userController = {
   async getActiveUserCount(_req: Request, res: Response, next: NextFunction) {
@@ -106,6 +107,37 @@ export const userController = {
     try {
       const result = await userService.verifyKyc(req.user!.id, req.body);
       sendSuccess(res, result);
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async uploadAsset(req: Request, res: Response, next: NextFunction) {
+    try {
+      const file = req.file;
+
+      if (!file) {
+        throw new BadRequestError('File is required');
+      }
+
+      const ext = file.originalname.includes('.')
+        ? file.originalname.split('.').pop()
+        : file.mimetype.split('/')[1] || 'bin';
+
+      const key = `users/${req.user!.id}/assets/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const url = await storageService.uploadFile(file.buffer, key, file.mimetype);
+
+      sendCreated(
+        res,
+        {
+          url,
+          key,
+          fileName: file.originalname,
+          mimeType: file.mimetype,
+          size: file.size,
+        },
+        'File uploaded successfully',
+      );
     } catch (err) {
       next(err);
     }

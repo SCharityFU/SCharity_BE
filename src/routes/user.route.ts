@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { userController } from '../controllers/user.controller';
 import { authenticate } from '../middlewares/auth.middleware';
 import { validate } from '../middlewares/validate.middleware';
-import { uploadImage } from '../middlewares/upload.middleware';
+import { uploadImage, uploadUserAsset } from '../middlewares/upload.middleware';
 import { updateUserProfileSchema, addBankAccountSchema, verifyKycSchema } from '../validators/user.validator';
 
 /**
@@ -228,5 +228,61 @@ router.put('/me/bank-accounts/:id/default', userController.setDefaultBankAccount
  *         description: User already verified
  */
 router.post('/me/kyc', validate(verifyKycSchema), userController.verifyKyc);
+
+/**
+ * @swagger
+ * /users/me/upload:
+ *   post:
+ *     summary: Upload a user asset (image or PDF) and get public URL
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - file
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *                 description: Image (jpeg/png/webp/gif) or PDF, max 10MB
+ *     responses:
+ *       201:
+ *         description: File uploaded successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         url:
+ *                           type: string
+ *                           example: https://bucket.s3.region.amazonaws.com/users/{userId}/assets/123-file.png
+ *                         key:
+ *                           type: string
+ *                           example: users/{userId}/assets/123-file.png
+ *                         fileName:
+ *                           type: string
+ *                           example: avatar.png
+ *                         mimeType:
+ *                           type: string
+ *                           example: image/png
+ *                         size:
+ *                           type: number
+ *                           example: 248120
+ *       400:
+ *         description: Invalid file type or missing file
+ *       401:
+ *         description: Unauthorized
+ */
+router.post('/me/upload', uploadUserAsset, userController.uploadAsset);
 
 export default router;

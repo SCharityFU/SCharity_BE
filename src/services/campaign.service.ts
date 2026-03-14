@@ -64,7 +64,11 @@ export class CampaignService {
     return request;
   }
 
-  async updateCampaignRequest(requestId: string, creatorId: string, dto: UpdateCampaignRequestDto & { thumbnailUrl?: string; mediaUrls?: string[]; proofDocuments?: string[] }) {
+  async updateCampaignRequest(
+    requestId: string,
+    creatorId: string,
+    dto: UpdateCampaignRequestDto & { thumbnailUrl?: string; mediaUrls?: string[]; proofDocuments?: string[] },
+  ) {
     const request = await CampaignRequestRepository.findOne({
       where: { id: requestId, requesterId: creatorId },
     });
@@ -111,7 +115,7 @@ export class CampaignService {
       query.page,
       query.limit,
       {
-        status: query.status as CampaignStatus,
+        status: CampaignStatus.ACTIVE,
         category: query.category,
         search: query.search,
       },
@@ -125,9 +129,10 @@ export class CampaignService {
   }
 
   async getCampaignById(id: string) {
+    // For now this one is not cached so that user can see the latest data immediately after donation
     const cacheKey = `campaign:v2:${id}`;
-    const cached = await redisClient.get(cacheKey);
-    if (cached) return JSON.parse(cached);
+    // const cached = await redisClient.get(cacheKey);
+    // if (cached) return JSON.parse(cached);
 
     const campaign = await CampaignRepository.findOne({
       where: { id },
@@ -163,11 +168,7 @@ export class CampaignService {
     return campaign;
   }
 
-  async updateCampaign(
-    id: string,
-    creatorId: string,
-    data: { story?: string; thumbnailUrl?: string },
-  ) {
+  async updateCampaign(id: string, creatorId: string, data: { story?: string; thumbnailUrl?: string }) {
     const campaign = await CampaignRepository.findOne({ where: { id, creatorId } });
     if (!campaign) throw new NotFoundError('Campaign not found');
 
@@ -193,9 +194,7 @@ export class CampaignService {
     }
 
     if (!campaign.canClose) {
-      throw new BadRequestError(
-        'Campaign can only be closed when funding reaches 50% or deadline has passed',
-      );
+      throw new BadRequestError('Campaign can only be closed when funding reaches 50% or deadline has passed');
     }
 
     if (campaign.status !== CampaignStatus.ACTIVE) {
@@ -253,11 +252,7 @@ export class CampaignService {
     });
     if (!campaign) throw new NotFoundError('Campaign not found');
 
-    const allowedStatuses = [
-      CampaignStatus.ACTIVE,
-      CampaignStatus.CLOSED,
-      CampaignStatus.WITHDRAWN,
-    ];
+    const allowedStatuses = [CampaignStatus.ACTIVE, CampaignStatus.CLOSED, CampaignStatus.WITHDRAWN];
     if (!allowedStatuses.includes(campaign.status)) {
       throw new ForbiddenError('Cannot post updates for this campaign in its current status');
     }

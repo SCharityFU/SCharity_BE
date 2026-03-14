@@ -46,13 +46,7 @@ const router = Router();
  *       422:
  *         description: Validation error
  */
-router.post(
-  '/',
-  optionalAuthenticate,
-  donationRateLimiter,
-  validate(createDonationSchema),
-  donationController.donate,
-);
+router.post('/', optionalAuthenticate, donationRateLimiter, validate(createDonationSchema), donationController.donate);
 
 /**
  * @swagger

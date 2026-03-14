@@ -1,7 +1,4 @@
-import {
-  CampaignRepository,
-  CampaignRequestRepository,
-} from '../repositories/campaign.repository';
+import { CampaignRepository, CampaignRequestRepository } from '../repositories/campaign.repository';
 import { DonationRepository } from '../repositories/donation.repository';
 import { WithdrawRepository } from '../repositories/withdraw.repository';
 import { UserRepository } from '../repositories/user.repository';
@@ -31,29 +28,24 @@ const AuditLogRepository = AppDataSource.getRepository(AuditLog);
 
 export class AdminService {
   async getDashboardStats(): Promise<DashboardStats> {
-    const [
-      campaignStats,
-      donationStats,
-      paidStats,
-      totalUsers,
-      totalCampaignCreators,
-      totalDonors,
-    ] = await Promise.all([
-      CampaignRepository.getDashboardStats(),
-      DonationRepository.getTotalDonationStats(),
-      WithdrawRepository.getTotalPaidAmount(),
-      UserRepository.count({ where: { role: UserRole.USER } }),
-      CampaignRepository.createQueryBuilder('c')
-        .select('COUNT(DISTINCT c.creatorId)', 'count')
-        .getRawOne()
-        .then((r) => parseInt(r?.count || '0')),
-      AppDataSource.getRepository(Donation)
-        .createQueryBuilder('d')
-        .where('d.donorId IS NOT NULL')
-        .select('COUNT(DISTINCT d.donorId)', 'count')
-        .getRawOne()
-        .then((r) => parseInt(r?.count || '0')),
-    ]);
+    const [campaignStats, donationStats, paidStats, totalUsers, totalCampaignCreators, totalDonors] = await Promise.all(
+      [
+        CampaignRepository.getDashboardStats(),
+        DonationRepository.getTotalDonationStats(),
+        WithdrawRepository.getTotalPaidAmount(),
+        UserRepository.count({ where: { role: UserRole.USER } }),
+        CampaignRepository.createQueryBuilder('c')
+          .select('COUNT(DISTINCT c.creatorId)', 'count')
+          .getRawOne()
+          .then((r) => parseInt(r?.count || '0')),
+        AppDataSource.getRepository(Donation)
+          .createQueryBuilder('d')
+          .where('d.donorId IS NOT NULL')
+          .select('COUNT(DISTINCT d.donorId)', 'count')
+          .getRawOne()
+          .then((r) => parseInt(r?.count || '0')),
+      ],
+    );
 
     return {
       totalCampaigns: campaignStats.total,
@@ -68,23 +60,12 @@ export class AdminService {
     };
   }
 
-  async getDonationChartData(
-    interval: 'day' | 'week' | 'month' = 'day',
-    days = 30,
-  ) {
+  async getDonationChartData(interval: 'day' | 'week' | 'month' = 'day', days = 30) {
     return DonationRepository.getSystemChartData(interval, days);
   }
 
-  async listCampaignRequests(
-    page: number,
-    limit: number,
-    status?: CampaignRequestStatus,
-  ) {
-    const [requests, total] = await CampaignRequestRepository.findWithPagination(
-      page,
-      limit,
-      status,
-    );
+  async listCampaignRequests(page: number, limit: number, status?: CampaignRequestStatus) {
+    const [requests, total] = await CampaignRequestRepository.findWithPagination(page, limit, status);
     return [requests.map(toCampaignRequestResponseDto), total] as const;
   }
 
@@ -97,12 +78,7 @@ export class AdminService {
     return toCampaignRequestResponseDto(request);
   }
 
-  async reviewCampaignRequest(
-    id: string,
-    adminId: string,
-    action: 'approve' | 'reject',
-    rejectReason?: string,
-  ) {
+  async reviewCampaignRequest(id: string, adminId: string, action: 'approve' | 'reject', rejectReason?: string) {
     const request = await CampaignRequestRepository.findOne({ where: { id } });
     if (!request) throw new NotFoundError('Campaign request not found');
 
@@ -167,10 +143,7 @@ export class AdminService {
 
     // Audit log
     await AuditLogRepository.save({
-      action:
-        action === 'approve'
-          ? AuditAction.CAMPAIGN_APPROVED
-          : AuditAction.CAMPAIGN_REJECTED,
+      action: action === 'approve' ? AuditAction.CAMPAIGN_APPROVED : AuditAction.CAMPAIGN_REJECTED,
       actorId: adminId,
       targetId: id,
       targetType: 'CampaignRequest',
@@ -189,13 +162,7 @@ export class AdminService {
       category?: string;
     },
   ) {
-    const [campaigns, total] = await CampaignRepository.findWithPagination(
-      page,
-      limit,
-      filters,
-      'createdAt',
-      'DESC',
-    );
+    const [campaigns, total] = await CampaignRepository.findWithPagination(page, limit, filters, 'createdAt', 'DESC');
 
     return [campaigns.map(toAdminCampaignListItemDto), total] as const;
   }
@@ -233,13 +200,8 @@ export class AdminService {
       throw new ConflictError('Campaign is already suspended');
     }
 
-    if (
-      campaign.status !== CampaignStatus.ACTIVE &&
-      campaign.status !== CampaignStatus.CLOSED
-    ) {
-      throw new BadRequestError(
-        'Only active or closed campaigns can be suspended',
-      );
+    if (campaign.status !== CampaignStatus.ACTIVE && campaign.status !== CampaignStatus.CLOSED) {
+      throw new BadRequestError('Only active or closed campaigns can be suspended');
     }
 
     campaign.status = CampaignStatus.SUSPENDED;
@@ -292,9 +254,7 @@ export class AdminService {
       throw new BadRequestError('Campaign is not suspended');
     }
 
-    campaign.status = campaign.isDeadlineReached
-      ? CampaignStatus.CLOSED
-      : CampaignStatus.ACTIVE;
+    campaign.status = campaign.isDeadlineReached ? CampaignStatus.CLOSED : CampaignStatus.ACTIVE;
     campaign.suspendReason = null as unknown as string;
     campaign.suspendedAt = null as unknown as Date;
     await CampaignRepository.save(campaign);
@@ -323,24 +283,11 @@ export class AdminService {
     return campaign;
   }
 
-  async listWithdrawRequests(
-    page: number,
-    limit: number,
-    status?: WithdrawStatus,
-  ) {
-    return WithdrawRepository.findWithPagination(
-      page,
-      limit,
-      status ? { status } : undefined,
-    );
+  async listWithdrawRequests(page: number, limit: number, status?: WithdrawStatus) {
+    return WithdrawRepository.findWithPagination(page, limit, status ? { status } : undefined);
   }
 
-  async processWithdrawRequest(
-    id: string,
-    adminId: string,
-    action: 'approve' | 'reject',
-    rejectReason?: string,
-  ) {
+  async processWithdrawRequest(id: string, adminId: string, action: 'approve' | 'reject', rejectReason?: string) {
     const request = await WithdrawRepository.findOne({
       where: { id },
       relations: ['campaign', 'requester'],
@@ -356,6 +303,7 @@ export class AdminService {
 
     if (action === 'approve') {
       request.status = WithdrawStatus.APPROVED;
+      // TODO: Actual bank transfer logic
       // In production, trigger actual bank transfer here
       request.status = WithdrawStatus.COMPLETED;
 
@@ -385,10 +333,7 @@ export class AdminService {
     await WithdrawRepository.save(request);
 
     await AuditLogRepository.save({
-      action:
-        action === 'approve'
-          ? AuditAction.WITHDRAW_APPROVED
-          : AuditAction.WITHDRAW_REJECTED,
+      action: action === 'approve' ? AuditAction.WITHDRAW_APPROVED : AuditAction.WITHDRAW_REJECTED,
       actorId: adminId,
       targetId: id,
       targetType: 'WithdrawRequest',
@@ -399,11 +344,7 @@ export class AdminService {
   }
 
   async listReports(page: number, limit: number, status?: ReportStatus) {
-    const [reports, total] = await ReportRepository.findWithPagination(
-      page,
-      limit,
-      status,
-    );
+    const [reports, total] = await ReportRepository.findWithPagination(page, limit, status);
     return [reports.map(toReportDetailDto), total] as const;
   }
 
@@ -436,18 +377,8 @@ export class AdminService {
     return toReportDetailDto(saved!);
   }
 
-  async listAllTransactions(
-    page: number,
-    limit: number,
-    search?: string,
-    sortOrder: 'ASC' | 'DESC' = 'DESC',
-  ) {
-    const [donations, total] = await DonationRepository.findAllWithPagination(
-      page,
-      limit,
-      search,
-      sortOrder,
-    );
+  async listAllTransactions(page: number, limit: number, search?: string, sortOrder: 'ASC' | 'DESC' = 'DESC') {
+    const [donations, total] = await DonationRepository.findAllWithPagination(page, limit, search, sortOrder);
     return [donations.map(toCampaignDonationAdminDto), total] as const;
   }
 

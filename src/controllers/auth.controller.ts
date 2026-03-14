@@ -7,11 +7,7 @@ export const authController = {
   async register(req: Request, res: Response, next: NextFunction) {
     try {
       const result = await authService.register(req.body);
-      sendCreated(
-        res,
-        result,
-        'Registration successful. Please check your email to verify your account.',
-      );
+      sendCreated(res, result, 'Registration successful. Please check your email to verify your account.');
     } catch (err) {
       next(err);
     }
@@ -98,11 +94,7 @@ export const authController = {
 
   async changePassword(req: Request, res: Response, next: NextFunction) {
     try {
-      await authService.changePassword(
-        req.user!.id,
-        req.body.currentPassword,
-        req.body.newPassword,
-      );
+      await authService.changePassword(req.user!.id, req.body.currentPassword, req.body.newPassword);
       sendSuccess(res, null, 'Password changed successfully');
     } catch (err) {
       next(err);

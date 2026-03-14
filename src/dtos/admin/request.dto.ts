@@ -63,4 +63,6 @@ export interface AdminCampaignTransactionsQueryDto {
   search?: string;
   sortBy?: 'createdAt' | 'amount';
   sortOrder?: 'ASC' | 'DESC';
+  startDate?: string;
+  endDate?: string;
 }

@@ -60,7 +60,7 @@
 
 | DTO | Fields | Use Case |
 |-----|--------|----------|
-| `CampaignDto` | Full campaign object including `progressPercent` (computed), `creator?` relation | **2.2.1** List campaigns, **2.2.2** View detail campaign, **2.1.4** Admin list campaigns, **2.1.5** Admin campaign details, **2.4.3** RU campaign, **2.4.5** Close campaign |
+| `CampaignDto` | Full campaign object including `progressPercent` (computed), `creator?` relation | **2.2.1** List campaigns, **2.2.2** View detail campaign, **2.4.3** RU campaign, **2.4.5** Close campaign |
 | `CampaignRequestResponseDto` | Request fields + `requester?`, `reviewedBy?`, `bankInfo`, `proofDocuments` | **2.1.9** Review campaign creation request, **2.4.1** My campaign requests |
 | `CampaignUpdateResponseDto` | `title`, `content`, `category`, `mediaUrls`, `isEdited`, `editedAt`, `isDraft`, `creator?` | **2.4.7** Update campaign progress (timeline view) |
 | `DonationChartDataPointDto` | `date`, `amount`, `count` | **2.4.4** Analytics chart, **2.1.1** Dashboard chart, **2.1.5** Admin campaign details charts |
@@ -148,7 +148,7 @@ When `isAnonymous == true`:
 | `AdminWithdrawRequestsQueryDto` | `page?`, `limit?`, `status?` | **2.1.2** List withdraw requests |
 | `AdminReportsQueryDto` | `page?`, `limit?`, `status?` | **2.1.3 View report** (tabs: all/unprocessed/processed) |
 | `AdminTransactionsQueryDto` | `page?`, `limit?`, `search?`, `sortOrder?` | **2.1.8 View list of all donations** |
-| `AdminCampaignTransactionsQueryDto` | `page?`, `limit?`, `search?`, `sortBy?`, `sortOrder?` | **2.1.5/2.1.6** Campaign-specific transaction table |
+| `AdminCampaignTransactionsQueryDto` | `page?`, `limit?`, `search?`, `sortBy?`, `sortOrder?`, `startDate?`, `endDate?` | **2.1.5/2.1.6** Campaign-specific transaction table |
 
 ### Response DTOs
 
@@ -156,10 +156,12 @@ When `isAnonymous == true`:
 |-----|--------|----------|
 | `DashboardStatsResponseDto` | `totalCampaigns`, `successfulCampaigns`, `suspendedCampaigns`, `totalDonationReceived`, `totalDonationPaid`, `adminBalance`, `totalCampaignCreators`, `totalDonors`, `totalUsers` | **2.1.1 View Dashboard** (summary cards) |
 | `DonationChartDataPointDto` | `date`, `amount`, `count` | **2.1.1** Dashboard chart |
+| `AdminCampaignListItemDto` | `id`, `title`, `organizer{id,fullName}`, `status`, `progressPercent`, `raisedAmount`, `goalAmount`, `fundingProgress`, `viewDetails{campaignId,endpoint}`, `deadline`, `createdAt` | **2.1.4 View list of campaigns** |
+| `AdminCampaignDetailDto` | Basic campaign tab projection + `publicView.endpoint` for user-side navigation | **2.1.5 View campaign details (Admin)** |
+| `AdminCampaignAnalyticsResponseDto` | `campaignId`, `days`, `chartData[]` (`date`, `amount`, `count`) | **2.1.5 View campaign details (Admin)** |
 
 > Admin list/detail endpoints reuse domain response DTOs:
 > - `CampaignRequestResponseDto` — UC 2.1.9
-> - `CampaignDto` — UC 2.1.4, 2.1.5
 > - `WithdrawRequestResponseDto` — UC 2.1.2
 > - `ReportResponseDto` — UC 2.1.3
 > - `DonationResponseDto` — UC 2.1.6, 2.1.8
@@ -174,7 +176,7 @@ When `isAnonymous == true`:
 | 2.1.2 | Accept withdraw | `ProcessWithdrawRequestDto`, `AdminWithdrawRequestsQueryDto` | `WithdrawRequestResponseDto` |
 | 2.1.3 | View report | `AdminReportsQueryDto` | `ReportResponseDto` (with `campaign`) |
 | 2.1.4 | View list of campaigns | `AdminCampaignsQueryDto` | `CampaignDto` |
-| 2.1.5 | View campaign details (Admin) | `AdminCampaignTransactionsQueryDto` | `CampaignDto`, `DonationChartDataPointDto[]`, `DonationResponseDto` |
+| 2.1.5 | View campaign details (Admin) | `AdminCampaignTransactionsQueryDto` | `AdminCampaignDetailDto`, `AdminCampaignAnalyticsResponseDto`, `AdminCampaignDonationResponseDto[]` |
 | 2.1.6 | View campaign donations | `CampaignDonationsQueryDto` | `DonationResponseDto` (masked bank account) |
 | 2.1.7a | Suspend campaign | `SuspendCampaignRequestDto` | `CampaignDto` |
 | 2.1.7b | Unsuspend campaign | *(none — path param only)* | `CampaignDto` |

@@ -36,6 +36,8 @@ export const DonationRepository = AppDataSource.getRepository(Donation).extend({
     search?: string,
     sortBy = 'createdAt',
     sortOrder: 'ASC' | 'DESC' = 'DESC',
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<[Donation[], number]> {
     const query = this.createQueryBuilder('donation')
       .leftJoinAndSelect('donation.donor', 'donor')
@@ -46,6 +48,14 @@ export const DonationRepository = AppDataSource.getRepository(Donation).extend({
 
     if (search) {
       query.andWhere('donor.fullName ILIKE :search', { search: `%${search}%` });
+    }
+
+    if (startDate) {
+      query.andWhere('donation.createdAt >= :startDate', { startDate });
+    }
+
+    if (endDate) {
+      query.andWhere('donation.createdAt <= :endDate', { endDate });
     }
 
     const validSortColumns = ['createdAt', 'amount'];

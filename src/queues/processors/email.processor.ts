@@ -68,6 +68,15 @@ const emailWorker = new Worker(
         );
         break;
 
+      case 'sendCampaignUnsuspendedEmail':
+        await emailService.sendCampaignUnsuspendedEmail(
+          data.email,
+          data.creatorName,
+          data.campaignTitle,
+          data.restoredStatus,
+        );
+        break;
+
       case 'sendWithdrawApprovedEmail':
         await emailService.sendWithdrawApprovedEmail(
           data.email,

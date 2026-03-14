@@ -7,12 +7,26 @@ const getPages = (query: Record<string, unknown>) =>
   getPaginationParams(query.page as string, query.limit as string);
 
 export const donationController = {
-  // Authenticated or guest donate
+  // Authenticated or guest donate → returns { donation, checkoutUrl }
   async donate(req: Request, res: Response, next: NextFunction) {
     try {
       const donorId = req.user?.id;
-      const donation = await donationService.createDonation(req.body, donorId);
-      sendCreated(res, donation, 'Donation created successfully');
+      const result = await donationService.createDonation(req.body, donorId);
+      sendCreated(res, result, 'Donation created. Redirect to checkoutUrl to pay.');
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // Called by frontend after PayOS redirects back
+  async paymentCallback(req: Request, res: Response, next: NextFunction) {
+    try {
+      const orderCode = Number(req.query.orderCode);
+      if (!orderCode || isNaN(orderCode)) {
+        return res.status(400).json({ success: false, message: 'Invalid orderCode' });
+      }
+      const result = await donationService.handlePaymentCallback(orderCode);
+      sendSuccess(res, result, 'Payment verified successfully');
     } catch (err) {
       next(err);
     }

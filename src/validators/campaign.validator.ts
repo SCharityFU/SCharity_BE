@@ -152,8 +152,24 @@ export const createCampaignUpdateSchema = z.object({
   content: z.string().min(10, 'Nội dung phải có ít nhất 10 ký tự'),
 
   category: z.nativeEnum(UpdateCategory).optional().default(UpdateCategory.PROGRESS),
+  isDraft: z.boolean().optional().default(true),
+});
 
-  isDraft: z.string().optional().default('false'),
+export const updateCampaignUpdateSchema = z.object({
+  title: z.string().min(5, 'Title must be at least 5 characters').max(100).optional(),
+  content: z.string().min(10, 'Content must be at least 10 characters').optional(),
+  category: z.nativeEnum(UpdateCategory).optional(),
+  isDraft: z.boolean().optional().default(true),
+});
+
+export const campaignAnalyticsQuerySchema = z.object({
+  days: z
+    .string()
+    .optional()
+    .transform((v) => {
+      const parsed = parseInt(v || '30', 10);
+      return Number.isNaN(parsed) ? 30 : Math.min(365, Math.max(1, parsed));
+    }),
 });
 
 export type CreateCampaignRequestDto = z.infer<typeof createCampaignRequestSchema>;
@@ -163,4 +179,6 @@ export type UpdateCampaignRequestDto = z.infer<typeof updateCampaignRequestSchem
 export type SuspendCampaignDto = z.infer<typeof suspendCampaignSchema>;
 export type CampaignQueryDto = z.infer<typeof campaignQuerySchema>;
 export type CreateCampaignUpdateDto = z.infer<typeof createCampaignUpdateSchema>;
+export type UpdateCampaignUpdateDto = z.infer<typeof updateCampaignUpdateSchema>;
 export type UpdateBankInfoDto = z.infer<typeof updateBankInfoSchema>;
+export type CampaignAnalyticsQueryDto = z.infer<typeof campaignAnalyticsQuerySchema>;

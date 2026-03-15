@@ -21,6 +21,20 @@ export interface DonationChartDataPointDto {
   count: number;
 }
 
+export interface AdminCampaignAnalyticsPointDto {
+  date: string;
+  amount: number;
+  count: number;
+  donors?: AdminCampaignDailyTopDonorDto[];
+}
+
+export interface AdminCampaignDailyTopDonorDto {
+  donorId: string;
+  donorName: string;
+  totalAmount: number;
+  donationCount: number;
+}
+
 /**
  * UC 2.1.4 – Admin: Campaign list row
  *
@@ -92,7 +106,7 @@ export interface AdminCampaignDetailDto {
 export interface AdminCampaignAnalyticsResponseDto {
   campaignId: string;
   days: number;
-  chartData: DonationChartDataPointDto[];
+  chartData: AdminCampaignAnalyticsPointDto[];
 }
 
 /**

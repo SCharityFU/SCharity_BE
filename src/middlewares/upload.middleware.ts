@@ -37,6 +37,18 @@ export const uploadImage = multer({
   fileFilter: imageFileFilter,
 }).single('avatar');
 
+export const uploadThumbnail = multer({
+  storage,
+  limits: { fileSize: MAX_FILE_SIZE },
+  fileFilter: imageFileFilter,
+}).single('thumbnail');
+
+export const uploadEditorImage = multer({
+  storage,
+  limits: { fileSize: MAX_FILE_SIZE },
+  fileFilter: imageFileFilter,
+}).single('image');
+
 export const uploadDocument = multer({
   storage,
   limits: { fileSize: MAX_FILE_SIZE },

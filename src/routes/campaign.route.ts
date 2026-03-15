@@ -3,15 +3,22 @@ import { campaignController } from '../controllers/campaign.controller';
 import { donationController } from '../controllers/donation.controller';
 import { authenticate, optionalAuthenticate } from '../middlewares/auth.middleware';
 import { parseMultipartBody, validate, validateQuery } from '../middlewares/validate.middleware';
-import { uploadCampaignFiles, uploadMultiple } from '../middlewares/upload.middleware';
-import { uploadEvidence } from '../middlewares/upload.middleware';
+import {
+  uploadCampaignFiles,
+  uploadEditorImage,
+  uploadEvidence,
+  uploadMultiple,
+  uploadThumbnail,
+} from '../middlewares/upload.middleware';
 import {
   createCampaignRequestSchema,
   updateCampaignSchema,
   updateCampaignRequestSchema,
   campaignQuerySchema,
   createCampaignUpdateSchema,
+  updateCampaignUpdateSchema,
   updateBankInfoSchema,
+  campaignAnalyticsQuerySchema,
 } from '../validators/campaign.validator';
 import { createCommentSchema } from '../validators/donation.validator';
 import { reportCampaignSchema } from '../validators/user.validator';
@@ -98,6 +105,12 @@ router.post(
  *     parameters:
  *       - $ref: '#/components/parameters/pageParam'
  *       - $ref: '#/components/parameters/limitParam'
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [pending, approved, rejected]
+ *         description: Filter by campaign request status
  *     responses:
  *       200:
  *         description: Paginated list of own campaign requests
@@ -201,6 +214,8 @@ router.put(
   validate(updateBankInfoSchema),
   campaignController.updateRequestBankInfo,
 );
+
+router.post('/editor-image', authenticate, uploadEditorImage, campaignController.uploadEditorImage);
 
 /**
  * @swagger
@@ -408,6 +423,12 @@ router.get('/:id', optionalAuthenticate, campaignController.getCampaign);
  *       - $ref: '#/components/parameters/idParam'
  *       - $ref: '#/components/parameters/pageParam'
  *       - $ref: '#/components/parameters/limitParam'
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [all, draft, published]
+ *         description: Filter by update status (all, draft, or published)
  *     responses:
  *       200:
  *         description: Paginated list of campaign updates
@@ -629,9 +650,16 @@ router.post(
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
- *             $ref: '#/components/schemas/UpdateCampaignRequest'
+ *             allOf:
+ *               - $ref: '#/components/schemas/UpdateCampaignRequest'
+ *               - type: object
+ *                 properties:
+ *                   thumbnail:
+ *                     type: string
+ *                     format: binary
+ *                     description: Optional campaign thumbnail image
  *     responses:
  *       200:
  *         description: Campaign updated
@@ -647,7 +675,7 @@ router.post(
  *       403:
  *         description: Not the campaign owner
  */
-router.put('/:id', authenticate, validate(updateCampaignSchema), campaignController.updateCampaign);
+router.put('/:id', authenticate, uploadThumbnail, validate(updateCampaignSchema), campaignController.updateCampaign);
 
 /**
  * @swagger
@@ -698,6 +726,45 @@ router.get('/:id/analytics', authenticate, campaignController.getCampaignAnalyti
 
 /**
  * @swagger
+ * /campaigns/{id}/creator-analytics:
+ *   get:
+ *     summary: Get admin-like campaign analytics for creator (owner only)
+ *     description: |
+ *       Returns a daily chart payload for the campaign owner, including optional
+ *       top donor breakdown per day.
+ *
+ *       Access rules:
+ *       - Requires JWT
+ *       - Caller must be the creator of the campaign
+ *     tags: [Campaigns]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/idParam'
+ *       - in: query
+ *         name: days
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 365
+ *           default: 30
+ *     responses:
+ *       200:
+ *         description: Creator analytics payload
+ *       403:
+ *         description: Caller is not the campaign creator
+ *       404:
+ *         description: Campaign not found
+ */
+router.get(
+  '/:id/creator-analytics',
+  authenticate,
+  validateQuery(campaignAnalyticsQuerySchema),
+  campaignController.getCreatorCampaignAnalytics,
+);
+
+/**
+ * @swagger
  * /campaigns/{id}/updates:
  *   post:
  *     summary: Post a progress update for a campaign (owner only)
@@ -739,9 +806,66 @@ router.get('/:id/analytics', authenticate, campaignController.getCampaignAnalyti
 router.post(
   '/:id/updates',
   authenticate,
-  uploadMultiple,
+  uploadMultiple, 
   validate(createCampaignUpdateSchema),
   campaignController.createCampaignUpdate,
+);
+
+/**
+ * @swagger
+ * /campaigns/{id}/updates/{updateId}:
+ *   put:
+ *     summary: Update a draft campaign update (owner only)
+ *     tags: [Campaigns]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/idParam'
+ *       - in: path
+ *         name: updateId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Campaign update ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             allOf:
+ *               - $ref: '#/components/schemas/UpdateCampaignUpdateRequest'
+ *               - type: object
+ *                 properties:
+ *                   files:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                       format: binary
+ *                     description: Optional media attachments
+ *     responses:
+ *       200:
+ *         description: Update updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       $ref: '#/components/schemas/CampaignUpdate'
+ *       403:
+ *         description: Update is not a draft or not the campaign owner
+ *       404:
+ *         description: Campaign update not found
+ */
+router.put(
+  '/:id/updates/:updateId',
+  authenticate,
+  uploadMultiple,
+  validate(updateCampaignUpdateSchema),
+  campaignController.updateCampaignUpdate,
 );
 
 export default router;

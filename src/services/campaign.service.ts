@@ -13,14 +13,104 @@ import {
   CreateCampaignRequestDto,
   CampaignQueryDto,
   CreateCampaignUpdateDto,
+  UpdateCampaignUpdateDto,
   UpdateBankInfoDto,
   UpdateCampaignRequestDto,
 } from '../validators/campaign.validator';
 import { emailQueue } from '../queues/email.queue';
 import redisClient from '../config/redis';
 import { UserRepository } from '../repositories/user.repository';
+import { CreatorCampaignAnalyticsResponseDto } from '../dtos/campaign/response.dto';
 
 const CAMPAIGN_CACHE_TTL = 300; // 5 minutes
+const TOP_DONORS_PER_DAY = 5;
+
+const toDateKey = (value: string | Date): string => {
+  const date = value instanceof Date ? value : new Date(value);
+  return date.toISOString().slice(0, 10);
+};
+
+const buildCreatorDailyChartSeries = (
+  days: number,
+  rawPoints: Array<{ date: string; amount: number; count: number }>,
+  rawDonorBreakdowns: Array<{
+    date: string;
+    donorId: string;
+    donorName: string;
+    totalAmount: number;
+    donationCount: number;
+  }> = [],
+) => {
+  const byDate = new Map<string, { amount: number; count: number }>();
+  const donorsByDate = new Map<
+    string,
+    Array<{
+      donorId: string;
+      donorName: string;
+      totalAmount: number;
+      donationCount: number;
+    }>
+  >();
+
+  for (const point of rawPoints) {
+    const dateKey = toDateKey(point.date);
+    const current = byDate.get(dateKey) ?? { amount: 0, count: 0 };
+    byDate.set(dateKey, {
+      amount: current.amount + Number(point.amount),
+      count: current.count + Number(point.count),
+    });
+  }
+
+  for (const donorRow of rawDonorBreakdowns) {
+    const dateKey = toDateKey(donorRow.date);
+    const currentRows = donorsByDate.get(dateKey) ?? [];
+
+    currentRows.push({
+      donorId: donorRow.donorId,
+      donorName: donorRow.donorName,
+      totalAmount: Number(donorRow.totalAmount),
+      donationCount: Number(donorRow.donationCount),
+    });
+
+    donorsByDate.set(dateKey, currentRows);
+  }
+
+  const today = new Date();
+  const todayUtc = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+  const startUtc = new Date(todayUtc);
+  startUtc.setUTCDate(startUtc.getUTCDate() - (days - 1));
+
+  const series: Array<{
+    date: string;
+    amount: number;
+    count: number;
+    donors: Array<{
+      donorId: string;
+      donorName: string;
+      totalAmount: number;
+      donationCount: number;
+    }>;
+  }> = [];
+
+  for (let i = 0; i < days; i++) {
+    const current = new Date(startUtc);
+    current.setUTCDate(startUtc.getUTCDate() + i);
+    const date = current.toISOString().slice(0, 10);
+    const value = byDate.get(date);
+    const donors = (donorsByDate.get(date) ?? [])
+      .sort((a, b) => b.totalAmount - a.totalAmount)
+      .slice(0, TOP_DONORS_PER_DAY);
+
+    series.push({
+      date,
+      amount: value?.amount ?? 0,
+      count: value?.count ?? 0,
+      donors,
+    });
+  }
+
+  return series;
+};
 
 export class CampaignService {
   async createRequest(dto: CreateCampaignRequestDto, creatorId: string) {
@@ -47,9 +137,13 @@ export class CampaignService {
     return request;
   }
 
-  async getMyRequests(creatorId: string, page: number, limit: number) {
+  async getMyRequests(creatorId: string, page: number, limit: number, status?: string) {
+    const where: any = { requesterId: creatorId };
+    if (status && ['pending', 'approved', 'rejected'].includes(status.toLowerCase())) {
+      where.status = status.toLowerCase();
+    }
     return CampaignRequestRepository.findAndCount({
-      where: { requesterId: creatorId },
+      where,
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
@@ -168,12 +262,20 @@ export class CampaignService {
     return campaign;
   }
 
-  async updateCampaign(id: string, creatorId: string, data: { story?: string; thumbnailUrl?: string }) {
-    const campaign = await CampaignRepository.findOne({ where: { id, creatorId } });
+  async updateCampaign(
+    id: string,
+    creatorId: string,
+    data: { story?: string; thumbnailUrl?: string },
+  ) {
+    const campaign = await CampaignRepository.findOne({ where: { id } });
     if (!campaign) throw new NotFoundError('Campaign not found');
 
-    if (campaign.status !== CampaignStatus.PENDING) {
-      throw new ForbiddenError('Campaign can only be updated when in pending status');
+    if (campaign.creatorId !== creatorId) {
+      throw new ForbiddenError('You do not have permission to update this campaign');
+    }
+
+    if (campaign.status !== CampaignStatus.ACTIVE) {
+      throw new ForbiddenError('Campaign can only be updated when in active status');
     }
 
     await CampaignRepository.update(id, data);
@@ -227,6 +329,30 @@ export class CampaignService {
     };
   }
 
+  async getCreatorCampaignAnalytics(
+    id: string,
+    creatorId: string,
+    days = 30,
+  ): Promise<CreatorCampaignAnalyticsResponseDto> {
+    const campaign = await CampaignRepository.findOne({ where: { id } });
+    if (!campaign) throw new NotFoundError('Campaign not found');
+
+    if (campaign.creatorId !== creatorId) {
+      throw new ForbiddenError('You are not the creator of this campaign');
+    }
+
+    const [rawChartData, rawDonorBreakdowns] = await Promise.all([
+      DonationRepository.getDonationChartData(id, days),
+      DonationRepository.getCampaignDailyDonorBreakdown(id, days),
+    ]);
+
+    return {
+      campaignId: id,
+      days,
+      chartData: buildCreatorDailyChartSeries(days, rawChartData, rawDonorBreakdowns),
+    };
+  }
+
   async getPublicActiveCampaigns(query: CampaignQueryDto) {
     return this.listCampaigns({
       ...query,
@@ -234,11 +360,21 @@ export class CampaignService {
     } as typeof query);
   }
 
-  async getCampaignUpdates(campaignId: string, page: number, limit: number) {
+  async getCampaignUpdates(campaignId: string, page: number, limit: number, status?: string) {
     const campaign = await CampaignRepository.findOne({ where: { id: campaignId } });
     if (!campaign) throw new NotFoundError('Campaign not found');
 
-    return CampaignUpdateRepository.findByCampaignId(campaignId, page, limit);
+    const where: any = { campaignId };
+
+    // Filter by status: 'draft' (isDraft = true), 'published' (isDraft = false), 'all' (no filter)
+    if (status === 'draft') {
+      where.isDraft = true;
+    } else if (status === 'published') {
+      where.isDraft = false;
+    }
+    // 'all' or undefined means no filter
+
+    return CampaignUpdateRepository.findByCampaignId(campaignId, page, limit, where);
   }
 
   async createCampaignUpdate(
@@ -259,7 +395,7 @@ export class CampaignService {
 
     const update = CampaignUpdateRepository.create({
       ...dto,
-      isDraft: dto.isDraft === 'true',
+      isDraft: dto.isDraft === true,
       campaignId,
       creatorId,
       mediaUrls,
@@ -286,6 +422,34 @@ export class CampaignService {
       }
     }
 
+    return update;
+  }
+
+  async updateCampaignUpdate(
+    campaignId: string,
+    updateId: string,
+    creatorId: string,
+    dto: UpdateCampaignUpdateDto,
+    mediaUrls?: string[],
+  ) {
+    const update = await CampaignUpdateRepository.findOne({
+      where: { id: updateId, campaignId, creatorId },
+    });
+    if (!update) throw new NotFoundError('Campaign update not found');
+
+    if (!update.isDraft) {
+      throw new ForbiddenError('Can only update draft campaign updates');
+    }
+
+    if (dto.title !== undefined) update.title = dto.title;
+    if (dto.content !== undefined) update.content = dto.content;
+    if (dto.category !== undefined) update.category = dto.category;
+    if (mediaUrls !== undefined) update.mediaUrls = mediaUrls;
+    update.isDraft = dto.isDraft === true;
+    update.isEdited = true;
+    update.editedAt = new Date();
+
+    await CampaignUpdateRepository.save(update);
     return update;
   }
 

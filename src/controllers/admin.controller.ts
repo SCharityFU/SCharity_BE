@@ -92,7 +92,7 @@ export const adminController = {
     try {
       const days = Number(req.query.days) || 30;
       const data = await adminService.getCampaignAnalytics(req.params.id, days);
-      sendSuccess(res, data);
+      sendSuccess(res, data, 'Campaign analytics fetched successfully');
     } catch (err) {
       next(err);
     }

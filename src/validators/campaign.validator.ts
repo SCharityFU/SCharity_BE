@@ -156,6 +156,16 @@ export const createCampaignUpdateSchema = z.object({
   isDraft: z.string().optional().default('false'),
 });
 
+export const campaignAnalyticsQuerySchema = z.object({
+  days: z
+    .string()
+    .optional()
+    .transform((v) => {
+      const parsed = parseInt(v || '30', 10);
+      return Number.isNaN(parsed) ? 30 : Math.min(365, Math.max(1, parsed));
+    }),
+});
+
 export type CreateCampaignRequestDto = z.infer<typeof createCampaignRequestSchema>;
 export type ReviewCampaignRequestDto = z.infer<typeof reviewCampaignRequestSchema>;
 export type UpdateCampaignDto = z.infer<typeof updateCampaignSchema>;
@@ -164,3 +174,4 @@ export type SuspendCampaignDto = z.infer<typeof suspendCampaignSchema>;
 export type CampaignQueryDto = z.infer<typeof campaignQuerySchema>;
 export type CreateCampaignUpdateDto = z.infer<typeof createCampaignUpdateSchema>;
 export type UpdateBankInfoDto = z.infer<typeof updateBankInfoSchema>;
+export type CampaignAnalyticsQueryDto = z.infer<typeof campaignAnalyticsQuerySchema>;

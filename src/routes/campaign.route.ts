@@ -12,6 +12,7 @@ import {
   campaignQuerySchema,
   createCampaignUpdateSchema,
   updateBankInfoSchema,
+  campaignAnalyticsQuerySchema,
 } from '../validators/campaign.validator';
 import { createCommentSchema } from '../validators/donation.validator';
 import { reportCampaignSchema } from '../validators/user.validator';
@@ -695,6 +696,45 @@ router.post('/:id/close', authenticate, campaignController.closeCampaign);
  *         description: Not the campaign owner
  */
 router.get('/:id/analytics', authenticate, campaignController.getCampaignAnalytics);
+
+/**
+ * @swagger
+ * /campaigns/{id}/creator-analytics:
+ *   get:
+ *     summary: Get admin-like campaign analytics for creator (owner only)
+ *     description: |
+ *       Returns a daily chart payload for the campaign owner, including optional
+ *       top donor breakdown per day.
+ *
+ *       Access rules:
+ *       - Requires JWT
+ *       - Caller must be the creator of the campaign
+ *     tags: [Campaigns]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/idParam'
+ *       - in: query
+ *         name: days
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 365
+ *           default: 30
+ *     responses:
+ *       200:
+ *         description: Creator analytics payload
+ *       403:
+ *         description: Caller is not the campaign creator
+ *       404:
+ *         description: Campaign not found
+ */
+router.get(
+  '/:id/creator-analytics',
+  authenticate,
+  validateQuery(campaignAnalyticsQuerySchema),
+  campaignController.getCreatorCampaignAnalytics,
+);
 
 /**
  * @swagger

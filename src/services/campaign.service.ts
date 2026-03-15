@@ -19,8 +19,97 @@ import {
 import { emailQueue } from '../queues/email.queue';
 import redisClient from '../config/redis';
 import { UserRepository } from '../repositories/user.repository';
+import { CreatorCampaignAnalyticsResponseDto } from '../dtos/campaign/response.dto';
 
 const CAMPAIGN_CACHE_TTL = 300; // 5 minutes
+const TOP_DONORS_PER_DAY = 5;
+
+const toDateKey = (value: string | Date): string => {
+  const date = value instanceof Date ? value : new Date(value);
+  return date.toISOString().slice(0, 10);
+};
+
+const buildCreatorDailyChartSeries = (
+  days: number,
+  rawPoints: Array<{ date: string; amount: number; count: number }>,
+  rawDonorBreakdowns: Array<{
+    date: string;
+    donorId: string;
+    donorName: string;
+    totalAmount: number;
+    donationCount: number;
+  }> = [],
+) => {
+  const byDate = new Map<string, { amount: number; count: number }>();
+  const donorsByDate = new Map<
+    string,
+    Array<{
+      donorId: string;
+      donorName: string;
+      totalAmount: number;
+      donationCount: number;
+    }>
+  >();
+
+  for (const point of rawPoints) {
+    const dateKey = toDateKey(point.date);
+    const current = byDate.get(dateKey) ?? { amount: 0, count: 0 };
+    byDate.set(dateKey, {
+      amount: current.amount + Number(point.amount),
+      count: current.count + Number(point.count),
+    });
+  }
+
+  for (const donorRow of rawDonorBreakdowns) {
+    const dateKey = toDateKey(donorRow.date);
+    const currentRows = donorsByDate.get(dateKey) ?? [];
+
+    currentRows.push({
+      donorId: donorRow.donorId,
+      donorName: donorRow.donorName,
+      totalAmount: Number(donorRow.totalAmount),
+      donationCount: Number(donorRow.donationCount),
+    });
+
+    donorsByDate.set(dateKey, currentRows);
+  }
+
+  const today = new Date();
+  const todayUtc = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+  const startUtc = new Date(todayUtc);
+  startUtc.setUTCDate(startUtc.getUTCDate() - (days - 1));
+
+  const series: Array<{
+    date: string;
+    amount: number;
+    count: number;
+    donors: Array<{
+      donorId: string;
+      donorName: string;
+      totalAmount: number;
+      donationCount: number;
+    }>;
+  }> = [];
+
+  for (let i = 0; i < days; i++) {
+    const current = new Date(startUtc);
+    current.setUTCDate(startUtc.getUTCDate() + i);
+    const date = current.toISOString().slice(0, 10);
+    const value = byDate.get(date);
+    const donors = (donorsByDate.get(date) ?? [])
+      .sort((a, b) => b.totalAmount - a.totalAmount)
+      .slice(0, TOP_DONORS_PER_DAY);
+
+    series.push({
+      date,
+      amount: value?.amount ?? 0,
+      count: value?.count ?? 0,
+      donors,
+    });
+  }
+
+  return series;
+};
 
 export class CampaignService {
   async createRequest(dto: CreateCampaignRequestDto, creatorId: string) {
@@ -224,6 +313,30 @@ export class CampaignService {
       chartData,
       recentDonations: recentDonations[0],
       totalDonors,
+    };
+  }
+
+  async getCreatorCampaignAnalytics(
+    id: string,
+    creatorId: string,
+    days = 30,
+  ): Promise<CreatorCampaignAnalyticsResponseDto> {
+    const campaign = await CampaignRepository.findOne({ where: { id } });
+    if (!campaign) throw new NotFoundError('Campaign not found');
+
+    if (campaign.creatorId !== creatorId) {
+      throw new ForbiddenError('You are not the creator of this campaign');
+    }
+
+    const [rawChartData, rawDonorBreakdowns] = await Promise.all([
+      DonationRepository.getDonationChartData(id, days),
+      DonationRepository.getCampaignDailyDonorBreakdown(id, days),
+    ]);
+
+    return {
+      campaignId: id,
+      days,
+      chartData: buildCreatorDailyChartSeries(days, rawChartData, rawDonorBreakdowns),
     };
   }
 

@@ -20,11 +20,101 @@ import { AppDataSource } from '../config/database';
 import { DashboardStats } from '../types';
 import { NotFoundError, BadRequestError, ConflictError } from '../utils/errors';
 import { emailQueue } from '../queues/email.queue';
+import { getVietnamDateString, getVietnamDayRangeUtc, getVietnamRecentDaysRange } from '../utils/timezone';
 
 import { UserRole } from '../entities/User';
 import { Donation } from '../entities/Donation';
 
+const TOP_DONORS_PER_DAY = 5;
+
 const AuditLogRepository = AppDataSource.getRepository(AuditLog);
+
+const toDateKey = (value: string | Date): string => {
+  return getVietnamDateString(value);
+};
+
+const buildDailyChartSeries = (
+  dateKeys: string[],
+  rawPoints: Array<{ date: string; amount: number; count: number }>,
+  rawDonorBreakdowns: Array<{
+    date: string;
+    donorId: string;
+    donorName: string;
+    totalAmount: number;
+    donationCount: number;
+  }> = [],
+): Array<{
+  date: string;
+  amount: number;
+  count: number;
+  donors: Array<{
+    donorId: string;
+    donorName: string;
+    totalAmount: number;
+    donationCount: number;
+  }>;
+}> => {
+  const byDate = new Map<string, { amount: number; count: number }>();
+  const donorsByDate = new Map<
+    string,
+    Array<{
+      donorId: string;
+      donorName: string;
+      totalAmount: number;
+      donationCount: number;
+    }>
+  >();
+
+  for (const point of rawPoints) {
+    const dateKey = toDateKey(point.date);
+    const current = byDate.get(dateKey) ?? { amount: 0, count: 0 };
+    byDate.set(dateKey, {
+      amount: current.amount + Number(point.amount),
+      count: current.count + Number(point.count),
+    });
+  }
+
+  for (const donorRow of rawDonorBreakdowns) {
+    const dateKey = toDateKey(donorRow.date);
+    const currentRows = donorsByDate.get(dateKey) ?? [];
+
+    currentRows.push({
+      donorId: donorRow.donorId,
+      donorName: donorRow.donorName,
+      totalAmount: Number(donorRow.totalAmount),
+      donationCount: Number(donorRow.donationCount),
+    });
+
+    donorsByDate.set(dateKey, currentRows);
+  }
+
+  const series: Array<{
+    date: string;
+    amount: number;
+    count: number;
+    donors: Array<{
+      donorId: string;
+      donorName: string;
+      totalAmount: number;
+      donationCount: number;
+    }>;
+  }> = [];
+  for (const date of dateKeys) {
+    const value = byDate.get(date);
+    const donors = (donorsByDate.get(date) ?? [])
+      .sort((a, b) => b.totalAmount - a.totalAmount)
+      .slice(0, TOP_DONORS_PER_DAY);
+
+    series.push({
+      date,
+      amount: value?.amount ?? 0,
+      count: value?.count ?? 0,
+      donors,
+    });
+  }
+
+  return series;
+};
 
 export class AdminService {
   async getDashboardStats(): Promise<DashboardStats> {
@@ -182,12 +272,13 @@ export class AdminService {
     });
     if (!campaign) throw new NotFoundError('Campaign not found');
 
-    const rawChartData = await DonationRepository.getDonationChartData(id, days);
-    const chartData = rawChartData.map((point) => ({
-      date: point.date,
-      amount: Number(point.amount),
-      count: Number(point.count),
-    }));
+    const { startUtc, endUtc, dateKeys } = getVietnamRecentDaysRange(days);
+
+    const [rawChartData, rawDonorBreakdowns] = await Promise.all([
+      DonationRepository.getDonationChartData(id, days, startUtc, endUtc),
+      DonationRepository.getCampaignDailyDonorBreakdown(id, days, startUtc, endUtc),
+    ]);
+    const chartData = buildDailyChartSeries(dateKeys, rawChartData, rawDonorBreakdowns);
 
     return toAdminCampaignAnalyticsDto(id, days, chartData);
   }
@@ -397,6 +488,9 @@ export class AdminService {
     });
     if (!campaign) throw new NotFoundError('Campaign not found');
 
+    const startBoundary = startDate ? getVietnamDayRangeUtc(startDate).startUtc : undefined;
+    const endBoundary = endDate ? getVietnamDayRangeUtc(endDate).endUtc : undefined;
+
     const [donations, total] = await DonationRepository.findByCampaignId(
       campaignId,
       page,
@@ -404,8 +498,8 @@ export class AdminService {
       search,
       sortBy,
       sortOrder,
-      startDate ? new Date(startDate) : undefined,
-      endDate ? new Date(endDate) : undefined,
+      startBoundary,
+      endBoundary,
     );
     return [donations.map(toCampaignDonationAdminDto), total] as const;
   }

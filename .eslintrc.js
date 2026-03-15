@@ -20,7 +20,7 @@ module.exports = {
     '@typescript-eslint/no-explicit-any': 'warn',
     '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
 
-    // 'prettier/prettier': 'off', // disable formatting enforcement
+    'prettier/prettier': 'off', // disable formatting enforcement
 
     'no-console': 'warn',
     'function-paren-newline': 'off',

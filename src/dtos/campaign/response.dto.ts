@@ -167,3 +167,23 @@ export interface CampaignAnalyticsResponseDto {
   recentDonations: DonationResponseDto[];
   totalDonors: number;
 }
+
+export interface CreatorCampaignDailyTopDonorDto {
+  donorId: string;
+  donorName: string;
+  totalAmount: number;
+  donationCount: number;
+}
+
+export interface CreatorCampaignAnalyticsPointDto {
+  date: string;
+  amount: number;
+  count: number;
+  donors?: CreatorCampaignDailyTopDonorDto[];
+}
+
+export interface CreatorCampaignAnalyticsResponseDto {
+  campaignId: string;
+  days: number;
+  chartData: CreatorCampaignAnalyticsPointDto[];
+}

@@ -16,10 +16,10 @@ import type {
 } from '../dtos/user/response.dto';
 import type {
   AdminCampaignAnalyticsResponseDto,
+  AdminCampaignAnalyticsPointDto,
   AdminCampaignDetailDto,
   AdminCampaignDonationResponseDto,
   AdminCampaignListItemDto,
-  DonationChartDataPointDto,
 } from '../dtos/admin/response.dto';
 import { maskAccountNumber } from './pagination';
 
@@ -69,10 +69,10 @@ export function toReportDetailDto(report: Report): ReportResponseDto {
     campaignId: report.campaignId,
     campaign: report.campaign
       ? {
-          id: report.campaign.id,
-          title: report.campaign.title,
-          thumbnailUrl: report.campaign.thumbnailUrl ?? null,
-        }
+        id: report.campaign.id,
+        title: report.campaign.title,
+        thumbnailUrl: report.campaign.thumbnailUrl ?? null,
+      }
       : undefined,
     reporterId: report.reporterId,
     reporter: report.reporter ? toUserPublicDto(report.reporter) : undefined,
@@ -210,7 +210,7 @@ export function toAdminCampaignDetailDto(
 export function toAdminCampaignAnalyticsDto(
   campaignId: string,
   days: number,
-  chartData: DonationChartDataPointDto[],
+  chartData: AdminCampaignAnalyticsPointDto[],
 ): AdminCampaignAnalyticsResponseDto {
   return {
     campaignId,

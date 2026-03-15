@@ -203,6 +203,17 @@ export const campaignController = {
     }
   },
 
+  // CampaignCreator: get chart analytics with daily donor breakdown
+  async getCreatorCampaignAnalytics(req: Request, res: Response, next: NextFunction) {
+    try {
+      const days = Number(req.query.days) || 30;
+      const data = await campaignService.getCreatorCampaignAnalytics(req.params.id, req.user!.id, days);
+      sendSuccess(res, data, 'Campaign analytics fetched successfully');
+    } catch (err) {
+      next(err);
+    }
+  },
+
   // Public: get campaign updates
   async getCampaignUpdates(req: Request, res: Response, next: NextFunction) {
     try {

@@ -3,8 +3,7 @@ import { withdrawService } from '../services/withdraw.service';
 import { sendSuccess, sendCreated, sendPaginated } from '../utils/response';
 import { getPaginationParams } from '../utils/pagination';
 
-const getPages = (query: Record<string, unknown>) =>
-  getPaginationParams(query.page as string, query.limit as string);
+const getPages = (query: Record<string, unknown>) => getPaginationParams(query.page as string, query.limit as string);
 
 export const withdrawController = {
   async createRequest(req: Request, res: Response, next: NextFunction) {

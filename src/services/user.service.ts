@@ -88,14 +88,16 @@ export class UserService {
 
     // Call VNPT eKYC
     const kycResult = await performKyc(dto);
-    
+
     if (!kycResult.success) {
       throw new BadRequestError(kycResult.message);
     }
 
     const FACE_MATCH_THRESHOLD = 85.0;
     if (!kycResult.faceMatchScore || kycResult.faceMatchScore < FACE_MATCH_THRESHOLD) {
-      throw new BadRequestError(`Face match score ${kycResult.faceMatchScore}% is below threshold ${FACE_MATCH_THRESHOLD}%`);
+      throw new BadRequestError(
+        `Face match score ${kycResult.faceMatchScore}% is below threshold ${FACE_MATCH_THRESHOLD}%`,
+      );
     }
 
     // Process name without diacritics
@@ -112,12 +114,12 @@ export class UserService {
     // Face embedding from Python service would go here in the future
     // Currently using dummy for saving logic
     const dummyEmbedding = JSON.stringify(new Array(512).fill(0.5));
-    
+
     await UserRepository.update(userId, {
       isKycVerified: true,
       kycFullName,
       kycIdNumber: kycResult.idNumber,
-      faceEmbedding: dummyEmbedding
+      faceEmbedding: dummyEmbedding,
     });
 
     return {

@@ -7,7 +7,9 @@ import type { User } from '../entities/User';
 import type { Report } from '../entities/Report';
 import type { Donation } from '../entities/Donation';
 import type { Campaign } from '../entities/Campaign';
+import type { CampaignRequest } from '../entities/CampaignRequest';
 import type { UserPublicDto } from '../dtos/auth/response.dto';
+import type { CampaignRequestResponseDto } from '../dtos/campaign/response.dto';
 import type {
   ReportResponseDto,
   ReportBriefDto,
@@ -81,6 +83,33 @@ export function toReportDetailDto(report: Report): ReportResponseDto {
     resolvedAt: report.resolvedAt ?? null,
     createdAt: report.createdAt,
     updatedAt: report.updatedAt,
+  };
+}
+
+export function toCampaignRequestResponseDto(
+  request: CampaignRequest,
+): CampaignRequestResponseDto {
+  return {
+    id: request.id,
+    title: request.title,
+    story: request.story,
+    goalAmount: Number(request.goalAmount),
+    deadline: request.deadline,
+    thumbnailUrl: request.thumbnailUrl ?? null,
+    mediaUrls: request.mediaUrls ?? null,
+    category: request.category ?? null,
+    status: request.status,
+    rejectReason: request.rejectReason ?? null,
+    bankInfo: request.bankInfo ?? null,
+    proofDocuments: request.proofDocuments ?? null,
+    requesterId: request.requesterId,
+    requester: request.requester ? toUserPublicDto(request.requester) : undefined,
+    reviewedById: request.reviewedById ?? null,
+    reviewedBy: request.reviewedBy ? toUserPublicDto(request.reviewedBy) : undefined,
+    reviewedAt: request.reviewedAt ?? null,
+    campaignId: request.campaignId ?? null,
+    createdAt: request.createdAt,
+    updatedAt: request.updatedAt,
   };
 }
 

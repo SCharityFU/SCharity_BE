@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { CampaignRequestStatus } from '../entities/CampaignRequest';
 
 export const adminCampaignAnalyticsQuerySchema = z.object({
   days: z
@@ -8,6 +9,24 @@ export const adminCampaignAnalyticsQuerySchema = z.object({
       const parsed = parseInt(v || '30', 10);
       return Number.isNaN(parsed) ? 30 : Math.min(365, Math.max(1, parsed));
     }),
+});
+
+export const adminCampaignRequestsQuerySchema = z.object({
+  page: z
+    .string()
+    .optional()
+    .transform((v) => {
+      const parsed = parseInt(v || '1', 10);
+      return Number.isNaN(parsed) ? 1 : Math.max(1, parsed);
+    }),
+  limit: z
+    .string()
+    .optional()
+    .transform((v) => {
+      const parsed = parseInt(v || '10', 10);
+      return Number.isNaN(parsed) ? 10 : Math.min(100, Math.max(1, parsed));
+    }),
+  status: z.nativeEnum(CampaignRequestStatus).optional(),
 });
 
 export const adminCampaignTransactionsQuerySchema = z.object({
@@ -53,6 +72,9 @@ export const adminCampaignTransactionsQuerySchema = z.object({
 
 export type AdminCampaignAnalyticsQueryDto = z.infer<
   typeof adminCampaignAnalyticsQuerySchema
+>;
+export type AdminCampaignRequestsQueryDto = z.infer<
+  typeof adminCampaignRequestsQuerySchema
 >;
 export type AdminCampaignTransactionsQueryDto = z.infer<
   typeof adminCampaignTransactionsQuerySchema

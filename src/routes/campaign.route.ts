@@ -78,7 +78,14 @@ const router = Router();
  *       422:
  *         description: Validation error
  */
-router.post('/requests', authenticate, uploadCampaignFiles, parseMultipartBody, validate(createCampaignRequestSchema), campaignController.submitRequest);
+router.post(
+  '/requests',
+  authenticate,
+  uploadCampaignFiles,
+  parseMultipartBody,
+  validate(createCampaignRequestSchema),
+  campaignController.submitRequest,
+);
 
 /**
  * @swagger
@@ -188,7 +195,12 @@ router.get('/requests/mine/:requestId', authenticate, campaignController.getMyRe
  *       422:
  *         description: Validation error
  */
-router.put('/requests/:requestId/bank-info', authenticate, validate(updateBankInfoSchema), campaignController.updateRequestBankInfo);
+router.put(
+  '/requests/:requestId/bank-info',
+  authenticate,
+  validate(updateBankInfoSchema),
+  campaignController.updateRequestBankInfo,
+);
 
 /**
  * @swagger
@@ -265,7 +277,14 @@ router.put('/requests/:requestId/bank-info', authenticate, validate(updateBankIn
  *       422:
  *         description: Validation error
  */
-router.put('/requests/:requestId', authenticate, uploadCampaignFiles, parseMultipartBody, validate(updateCampaignRequestSchema), campaignController.updateCampaignRequest);
+router.put(
+  '/requests/:requestId',
+  authenticate,
+  uploadCampaignFiles,
+  parseMultipartBody,
+  validate(updateCampaignRequestSchema),
+  campaignController.updateCampaignRequest,
+);
 
 /**
  * @swagger
@@ -352,12 +371,7 @@ router.get('/mine', authenticate, campaignController.getMyCampaigns);
  *                     pagination:
  *                       $ref: '#/components/schemas/PaginationMeta'
  */
-router.get(
-  '/',
-  optionalAuthenticate,
-  validateQuery(campaignQuerySchema),
-  campaignController.listCampaigns,
-);
+router.get('/', optionalAuthenticate, validateQuery(campaignQuerySchema), campaignController.listCampaigns);
 
 /**
  * @swagger
@@ -523,12 +537,7 @@ router.get('/:campaignId/comments', donationController.getComments);
  *       403:
  *         description: You must donate to this campaign before commenting
  */
-router.post(
-  '/:campaignId/comments',
-  authenticate,
-  validate(createCommentSchema),
-  donationController.createComment,
-);
+router.post('/:campaignId/comments', authenticate, validate(createCommentSchema), donationController.createComment);
 
 /**
  * @swagger

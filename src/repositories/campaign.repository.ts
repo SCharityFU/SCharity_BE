@@ -111,9 +111,15 @@ export const CampaignUpdateRepository = AppDataSource.getRepository(CampaignUpda
     campaignId: string,
     page: number,
     limit: number,
+    where?: Record<string, any>,
   ): Promise<[CampaignUpdate[], number]> {
+    // If where is provided, merge it with campaignId; otherwise default to published updates only
+    const whereClause = where
+      ? { ...where, campaignId }
+      : { campaignId, isDraft: false };
+
     return this.findAndCount({
-      where: { campaignId, isDraft: false },
+      where: whereClause,
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,

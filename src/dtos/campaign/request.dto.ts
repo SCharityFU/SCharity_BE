@@ -21,7 +21,6 @@ export interface SubmitCampaignRequestDto {
 
 export interface UpdateCampaignRequestDto {
   story?: string;
-  thumbnailUrl?: string;
 }
 
 export interface CampaignQueryRequestDto {

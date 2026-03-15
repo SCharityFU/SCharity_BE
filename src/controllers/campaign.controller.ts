@@ -4,18 +4,16 @@ import { storageService } from '../services/storage.service';
 import { mapCampaignDetailDto } from '../dtos/campaign';
 import { sendSuccess, sendCreated, sendPaginated } from '../utils/response';
 import { getPaginationParams } from '../utils/pagination';
+import { BadRequestError } from '../utils/errors';
 
-const getPages = (query: Record<string, unknown>) =>
-  getPaginationParams(query.page as string, query.limit as string);
+const getPages = (query: Record<string, unknown>) => getPaginationParams(query.page as string, query.limit as string);
 
 export const campaignController = {
   // Public: list campaigns
   async listCampaigns(req: Request, res: Response, next: NextFunction) {
     try {
       const { page, limit } = getPages(req.query);
-      const query = { ...req.query, page, limit } as Parameters<
-        typeof campaignService.listCampaigns
-      >[0];
+      const query = { ...req.query, page, limit } as Parameters<typeof campaignService.listCampaigns>[0];
       const { campaigns, total } = await campaignService.listCampaigns(query);
       sendPaginated(res, campaigns, { total, page, limit });
     } catch (err) {
@@ -28,6 +26,28 @@ export const campaignController = {
     try {
       const campaign = await campaignService.getCampaignById(req.params.id);
       sendSuccess(res, mapCampaignDetailDto(campaign));
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // CampaignCreator: upload inline image for rich text editor
+  async uploadEditorImage(req: Request, res: Response, next: NextFunction) {
+    try {
+      const imageFile = req.file;
+
+      if (!imageFile) {
+        throw new BadRequestError('Image file is required');
+      }
+
+      const extension = imageFile.mimetype.split('/')[1] ?? 'jpg';
+      const imageUrl = await storageService.uploadFile(
+        imageFile.buffer,
+        `campaigns/editor/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`,
+        imageFile.mimetype,
+      );
+
+      sendSuccess(res, { url: imageUrl }, 'Editor image uploaded successfully');
     } catch (err) {
       next(err);
     }
@@ -69,10 +89,6 @@ export const campaignController = {
         );
         proofDocuments.push(url);
       }
-      // var url =  "https://www.pinterest.com/pin/182044009932036861/";
-      // thumbnailUrl = url;
-      // mediaUrls.push(url);
-      // proofDocuments.push(url);
       const request = await campaignService.createRequest(
         { ...req.body, thumbnailUrl, mediaUrls, proofDocuments },
         req.user!.id,
@@ -87,7 +103,8 @@ export const campaignController = {
   async getMyRequests(req: Request, res: Response, next: NextFunction) {
     try {
       const { page, limit } = getPages(req.query);
-      const [data, total] = await campaignService.getMyRequests(req.user!.id, page, limit);
+      const status = req.query.status as string | undefined;
+      const [data, total] = await campaignService.getMyRequests(req.user!.id, page, limit, status);
       sendPaginated(res, data, { total, page, limit });
     } catch (err) {
       next(err);
@@ -107,11 +124,7 @@ export const campaignController = {
   // CampaignCreator: update bank info for a campaign request
   async updateRequestBankInfo(req: Request, res: Response, next: NextFunction) {
     try {
-      const request = await campaignService.updateRequestBankInfo(
-        req.params.requestId,
-        req.user!.id,
-        req.body,
-      );
+      const request = await campaignService.updateRequestBankInfo(req.params.requestId, req.user!.id, req.body);
       sendSuccess(res, request, 'Bank information updated successfully');
     } catch (err) {
       next(err);
@@ -156,16 +169,12 @@ export const campaignController = {
         proofDocuments.push(url);
       }
 
-      const request = await campaignService.updateCampaignRequest(
-        req.params.requestId,
-        req.user!.id,
-        {
-          ...req.body,
-          ...(thumbnailUrl ? { thumbnailUrl } : {}),
-          ...(mediaUrls.length > 0 ? { mediaUrls } : {}),
-          ...(proofDocuments.length > 0 ? { proofDocuments } : {}),
-        },
-      );
+      const request = await campaignService.updateCampaignRequest(req.params.requestId, req.user!.id, {
+        ...req.body,
+        ...(thumbnailUrl ? { thumbnailUrl } : {}),
+        ...(mediaUrls.length > 0 ? { mediaUrls } : {}),
+        ...(proofDocuments.length > 0 ? { proofDocuments } : {}),
+      });
       sendSuccess(res, request, 'Campaign request updated successfully');
     } catch (err) {
       next(err);
@@ -186,7 +195,21 @@ export const campaignController = {
   // CampaignCreator: update campaign (only pending)
   async updateCampaign(req: Request, res: Response, next: NextFunction) {
     try {
-      const campaign = await campaignService.updateCampaign(req.params.id, req.user!.id, req.body);
+      const thumbnailFile = req.file;
+
+      let thumbnailUrl: string | undefined;
+
+      if (thumbnailFile) {
+        thumbnailUrl = await storageService.uploadFile(
+          thumbnailFile.buffer,
+          `campaigns/${Date.now()}-thumbnail.${thumbnailFile.mimetype.split('/')[1]}`,
+          thumbnailFile.mimetype,
+        );
+      }
+      const campaign = await campaignService.updateCampaign(req.params.id, req.user!.id, {
+        ...req.body,
+        ...(thumbnailUrl ? { thumbnailUrl } : {}),
+      });
       sendSuccess(res, campaign, 'Campaign updated');
     } catch (err) {
       next(err);
@@ -214,11 +237,28 @@ export const campaignController = {
     }
   },
 
+  // CampaignCreator: get chart analytics with daily donor breakdown
+  async getCreatorCampaignAnalytics(req: Request, res: Response, next: NextFunction) {
+    try {
+      const days = Number(req.query.days) || 30;
+      const data = await campaignService.getCreatorCampaignAnalytics(req.params.id, req.user!.id, days);
+      sendSuccess(res, data, 'Campaign analytics fetched successfully');
+    } catch (err) {
+      next(err);
+    }
+  },
+
   // Public: get campaign updates
   async getCampaignUpdates(req: Request, res: Response, next: NextFunction) {
     try {
       const { page, limit } = getPages(req.query);
-      const [data, total] = await campaignService.getCampaignUpdates(req.params.id, page, limit);
+      const status = req.query.status as string | undefined; // 'all', 'draft', 'published'
+      const [data, total] = await campaignService.getCampaignUpdates(
+        req.params.id,
+        page,
+        limit,
+        status,
+      );
       sendPaginated(res, data, { total, page, limit });
     } catch (err) {
       next(err);
@@ -233,12 +273,7 @@ export const campaignController = {
 
       if (files && files.length > 0) {
         for (let i = 0; i < files.length; i++) {
-          const url = await storageService.uploadUpdateMedia(
-            files[i].buffer,
-            req.params.id,
-            i,
-            files[i].mimetype,
-          );
+          const url = await storageService.uploadUpdateMedia(files[i].buffer, req.params.id, i, files[i].mimetype);
           mediaUrls.push(url);
         }
       }
@@ -250,6 +285,38 @@ export const campaignController = {
         mediaUrls.length ? mediaUrls : undefined,
       );
       sendCreated(res, update, 'Campaign update posted');
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // CampaignCreator: update draft campaign update
+  async updateCampaignUpdate(req: Request, res: Response, next: NextFunction) {
+    try {
+      const files = req.files as Express.Multer.File[] | undefined;
+      let mediaUrls: string[] | undefined = undefined;
+
+      if (files && files.length > 0) {
+        mediaUrls = [];
+        for (let i = 0; i < files.length; i++) {
+          const url = await storageService.uploadUpdateMedia(
+            files[i].buffer,
+            req.params.id,
+            i,
+            files[i].mimetype,
+          );
+          mediaUrls.push(url);
+        }
+      }
+
+      const update = await campaignService.updateCampaignUpdate(
+        req.params.id,
+        req.params.updateId,
+        req.user!.id,
+        req.body,
+        mediaUrls,
+      );
+      sendSuccess(res, update, 'Campaign update updated');
     } catch (err) {
       next(err);
     }

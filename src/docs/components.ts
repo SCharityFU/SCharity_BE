@@ -357,9 +357,6 @@
  *         story:
  *           type: string
  *           minLength: 50
- *         thumbnailUrl:
- *           type: string
- *           format: uri
  *
  *     ReviewCampaignRequestBody:
  *       type: object
@@ -421,10 +418,26 @@
  *         category:
  *           type: string
  *           enum: [progress, financial, general, completion]
+ *         isDraft:
+ *           type: boolean
+ *           default: 'true'
+ *
+ *     UpdateCampaignUpdateRequest:
+ *       type: object
+ *       properties:
+ *         title:
+ *           type: string
+ *           minLength: 5
+ *         content:
+ *           type: string
+ *           minLength: 20
+ *         category:
+ *           type: string
+ *           enum: [progress, financial, general, completion]
  *           default: general
  *         isDraft:
  *           type: boolean
- *           default: false
+ *           default: true
  *
  *     CampaignAnalytics:
  *       type: object
@@ -716,5 +729,3 @@
  *         format: uuid
  *       description: Resource UUID
  */
-
-export {};

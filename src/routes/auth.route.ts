@@ -2,7 +2,6 @@ import { Router } from 'express';
 import passport from 'passport';
 import { authController } from '../controllers/auth.controller';
 import { authenticate } from '../middlewares/auth.middleware';
-import { authRateLimiter } from '../middlewares/rateLimiter.middleware';
 import { validate } from '../middlewares/validate.middleware';
 import {
   registerSchema,
@@ -122,11 +121,7 @@ router.post('/login', validate(loginSchema), authController.login);
  *                     data:
  *                       $ref: '#/components/schemas/AuthResponse'
  */
-router.post(
-  '/google-login',
-  validate(googleLoginSchema),
-  authController.googleLogin,
-);
+router.post('/google-login', validate(googleLoginSchema), authController.googleLogin);
 
 /**
  * @swagger
@@ -189,11 +184,7 @@ router.post('/logout', authenticate, authController.logout);
  *       200:
  *         description: If the email exists, a reset link will be sent
  */
-router.post(
-  '/forgot-password',
-  validate(forgotPasswordSchema),
-  authController.forgotPassword,
-);
+router.post('/forgot-password', validate(forgotPasswordSchema), authController.forgotPassword);
 
 /**
  * @swagger
@@ -213,11 +204,7 @@ router.post(
  *       400:
  *         description: Invalid or expired token
  */
-router.post(
-  '/reset-password',
-  validate(resetPasswordSchema),
-  authController.resetPassword,
-);
+router.post('/reset-password', validate(resetPasswordSchema), authController.resetPassword);
 
 /**
  * @swagger
@@ -285,12 +272,7 @@ router.get('/me', authenticate, authController.me);
  *       401:
  *         description: Current password incorrect
  */
-router.post(
-  '/change-password',
-  authenticate,
-  validate(changePasswordSchema),
-  authController.changePassword,
-);
+router.post('/change-password', authenticate, validate(changePasswordSchema), authController.changePassword);
 
 /**
  * @swagger

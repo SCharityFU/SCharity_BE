@@ -3,13 +3,11 @@ import { adminController } from '../controllers/admin.controller';
 import { authenticate } from '../middlewares/auth.middleware';
 import { requireAdmin } from '../middlewares/role.middleware';
 import { validate, validateQuery } from '../middlewares/validate.middleware';
-import {
-  reviewCampaignRequestSchema,
-  suspendCampaignSchema,
-} from '../validators/campaign.validator';
+import { reviewCampaignRequestSchema, suspendCampaignSchema } from '../validators/campaign.validator';
 import { processWithdrawRequestSchema } from '../validators/withdraw.validator';
 import {
   adminCampaignAnalyticsQuerySchema,
+  adminCampaignRequestsQuerySchema,
   adminCampaignTransactionsQuerySchema,
 } from '../validators/admin.validator';
 
@@ -124,7 +122,7 @@ router.get('/dashboard/chart', adminController.getDonationChartData);
  *                     pagination:
  *                       $ref: '#/components/schemas/PaginationMeta'
  */
-router.get('/campaign-requests', adminController.listCampaignRequests);
+router.get('/campaign-requests', validateQuery(adminCampaignRequestsQuerySchema), adminController.listCampaignRequests);
 
 /**
  * @swagger
@@ -368,11 +366,7 @@ router.get(
  *       409:
  *         description: Campaign already suspended
  */
-router.put(
-  '/campaigns/:id/suspend',
-  validate(suspendCampaignSchema),
-  adminController.suspendCampaign,
-);
+router.put('/campaigns/:id/suspend', validate(suspendCampaignSchema), adminController.suspendCampaign);
 
 /**
  * @swagger

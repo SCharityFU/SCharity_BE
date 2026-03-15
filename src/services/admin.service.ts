@@ -1,7 +1,4 @@
-import {
-  CampaignRepository,
-  CampaignRequestRepository,
-} from '../repositories/campaign.repository';
+import { CampaignRepository, CampaignRequestRepository } from '../repositories/campaign.repository';
 import { DonationRepository } from '../repositories/donation.repository';
 import { WithdrawRepository } from '../repositories/withdraw.repository';
 import { UserRepository, BankAccountRepository, BankAccountChangeRequestRepository } from '../repositories/user.repository';
@@ -10,6 +7,7 @@ import {
   toReportDetailDto,
   toAdminCampaignAnalyticsDto,
   toAdminCampaignDetailDto,
+  toCampaignRequestResponseDto,
   toCampaignDonationAdminDto,
   toAdminCampaignListItemDto,
 } from '../utils/dto-mapper';
@@ -23,38 +21,122 @@ import { AppDataSource } from '../config/database';
 import { DashboardStats } from '../types';
 import { NotFoundError, BadRequestError, ConflictError } from '../utils/errors';
 import { emailQueue } from '../queues/email.queue';
-import { getPaginationParams } from '../utils/pagination';
+import { getVietnamDateString, getVietnamDayRangeUtc, getVietnamRecentDaysRange } from '../utils/timezone';
 
 import { UserRole } from '../entities/User';
 import { Donation } from '../entities/Donation';
 
+const TOP_DONORS_PER_DAY = 5;
+
 const AuditLogRepository = AppDataSource.getRepository(AuditLog);
+
+const toDateKey = (value: string | Date): string => {
+  return getVietnamDateString(value);
+};
+
+const buildDailyChartSeries = (
+  dateKeys: string[],
+  rawPoints: Array<{ date: string; amount: number; count: number }>,
+  rawDonorBreakdowns: Array<{
+    date: string;
+    donorId: string;
+    donorName: string;
+    totalAmount: number;
+    donationCount: number;
+  }> = [],
+): Array<{
+  date: string;
+  amount: number;
+  count: number;
+  donors: Array<{
+    donorId: string;
+    donorName: string;
+    totalAmount: number;
+    donationCount: number;
+  }>;
+}> => {
+  const byDate = new Map<string, { amount: number; count: number }>();
+  const donorsByDate = new Map<
+    string,
+    Array<{
+      donorId: string;
+      donorName: string;
+      totalAmount: number;
+      donationCount: number;
+    }>
+  >();
+
+  for (const point of rawPoints) {
+    const dateKey = toDateKey(point.date);
+    const current = byDate.get(dateKey) ?? { amount: 0, count: 0 };
+    byDate.set(dateKey, {
+      amount: current.amount + Number(point.amount),
+      count: current.count + Number(point.count),
+    });
+  }
+
+  for (const donorRow of rawDonorBreakdowns) {
+    const dateKey = toDateKey(donorRow.date);
+    const currentRows = donorsByDate.get(dateKey) ?? [];
+
+    currentRows.push({
+      donorId: donorRow.donorId,
+      donorName: donorRow.donorName,
+      totalAmount: Number(donorRow.totalAmount),
+      donationCount: Number(donorRow.donationCount),
+    });
+
+    donorsByDate.set(dateKey, currentRows);
+  }
+
+  const series: Array<{
+    date: string;
+    amount: number;
+    count: number;
+    donors: Array<{
+      donorId: string;
+      donorName: string;
+      totalAmount: number;
+      donationCount: number;
+    }>;
+  }> = [];
+  for (const date of dateKeys) {
+    const value = byDate.get(date);
+    const donors = (donorsByDate.get(date) ?? [])
+      .sort((a, b) => b.totalAmount - a.totalAmount)
+      .slice(0, TOP_DONORS_PER_DAY);
+
+    series.push({
+      date,
+      amount: value?.amount ?? 0,
+      count: value?.count ?? 0,
+      donors,
+    });
+  }
+
+  return series;
+};
 
 export class AdminService {
   async getDashboardStats(): Promise<DashboardStats> {
-    const [
-      campaignStats,
-      donationStats,
-      paidStats,
-      totalUsers,
-      totalCampaignCreators,
-      totalDonors,
-    ] = await Promise.all([
-      CampaignRepository.getDashboardStats(),
-      DonationRepository.getTotalDonationStats(),
-      WithdrawRepository.getTotalPaidAmount(),
-      UserRepository.count({ where: { role: UserRole.USER } }),
-      CampaignRepository.createQueryBuilder('c')
-        .select('COUNT(DISTINCT c.creatorId)', 'count')
-        .getRawOne()
-        .then((r) => parseInt(r?.count || '0')),
-      AppDataSource.getRepository(Donation)
-        .createQueryBuilder('d')
-        .where('d.donorId IS NOT NULL')
-        .select('COUNT(DISTINCT d.donorId)', 'count')
-        .getRawOne()
-        .then((r) => parseInt(r?.count || '0')),
-    ]);
+    const [campaignStats, donationStats, paidStats, totalUsers, totalCampaignCreators, totalDonors] = await Promise.all(
+      [
+        CampaignRepository.getDashboardStats(),
+        DonationRepository.getTotalDonationStats(),
+        WithdrawRepository.getTotalPaidAmount(),
+        UserRepository.count({ where: { role: UserRole.USER } }),
+        CampaignRepository.createQueryBuilder('c')
+          .select('COUNT(DISTINCT c.creatorId)', 'count')
+          .getRawOne()
+          .then((r) => parseInt(r?.count || '0')),
+        AppDataSource.getRepository(Donation)
+          .createQueryBuilder('d')
+          .where('d.donorId IS NOT NULL')
+          .select('COUNT(DISTINCT d.donorId)', 'count')
+          .getRawOne()
+          .then((r) => parseInt(r?.count || '0')),
+      ],
+    );
 
     return {
       totalCampaigns: campaignStats.total,
@@ -69,21 +151,13 @@ export class AdminService {
     };
   }
 
-  async getDonationChartData(
-    interval: 'day' | 'week' | 'month' = 'day',
-    days = 30,
-  ) {
+  async getDonationChartData(interval: 'day' | 'week' | 'month' = 'day', days = 30) {
     return DonationRepository.getSystemChartData(interval, days);
   }
 
-  async listCampaignRequests(
-    page: number,
-    limit: number,
-    status?: CampaignRequestStatus,
-  ) {
-    const { skip } = getPaginationParams(page, limit);
-    void skip;
-    return CampaignRequestRepository.findWithPagination(page, limit, status);
+  async listCampaignRequests(page: number, limit: number, status?: CampaignRequestStatus) {
+    const [requests, total] = await CampaignRequestRepository.findWithPagination(page, limit, status);
+    return [requests.map(toCampaignRequestResponseDto), total] as const;
   }
 
   async getCampaignRequestById(id: string) {
@@ -92,15 +166,10 @@ export class AdminService {
       relations: ['requester', 'reviewedBy'],
     });
     if (!request) throw new NotFoundError('Campaign request not found');
-    return request;
+    return toCampaignRequestResponseDto(request);
   }
 
-  async reviewCampaignRequest(
-    id: string,
-    adminId: string,
-    action: 'approve' | 'reject',
-    rejectReason?: string,
-  ) {
+  async reviewCampaignRequest(id: string, adminId: string, action: 'approve' | 'reject', rejectReason?: string) {
     const request = await CampaignRequestRepository.findOne({ where: { id } });
     if (!request) throw new NotFoundError('Campaign request not found');
 
@@ -158,19 +227,21 @@ export class AdminService {
 
     await CampaignRequestRepository.save(request);
 
+    const savedRequest = await CampaignRequestRepository.findOne({
+      where: { id: request.id },
+      relations: ['requester', 'reviewedBy'],
+    });
+
     // Audit log
     await AuditLogRepository.save({
-      action:
-        action === 'approve'
-          ? AuditAction.CAMPAIGN_APPROVED
-          : AuditAction.CAMPAIGN_REJECTED,
+      action: action === 'approve' ? AuditAction.CAMPAIGN_APPROVED : AuditAction.CAMPAIGN_REJECTED,
       actorId: adminId,
       targetId: id,
       targetType: 'CampaignRequest',
       metadata: { action, rejectReason },
     });
 
-    return request;
+    return toCampaignRequestResponseDto(savedRequest ?? request);
   }
 
   async listCampaigns(
@@ -182,13 +253,7 @@ export class AdminService {
       category?: string;
     },
   ) {
-    const [campaigns, total] = await CampaignRepository.findWithPagination(
-      page,
-      limit,
-      filters,
-      'createdAt',
-      'DESC',
-    );
+    const [campaigns, total] = await CampaignRepository.findWithPagination(page, limit, filters, 'createdAt', 'DESC');
 
     return [campaigns.map(toAdminCampaignListItemDto), total] as const;
   }
@@ -208,12 +273,13 @@ export class AdminService {
     });
     if (!campaign) throw new NotFoundError('Campaign not found');
 
-    const rawChartData = await DonationRepository.getDonationChartData(id, days);
-    const chartData = rawChartData.map((point) => ({
-      date: point.date,
-      amount: Number(point.amount),
-      count: Number(point.count),
-    }));
+    const { startUtc, endUtc, dateKeys } = getVietnamRecentDaysRange(days);
+
+    const [rawChartData, rawDonorBreakdowns] = await Promise.all([
+      DonationRepository.getDonationChartData(id, days, startUtc, endUtc),
+      DonationRepository.getCampaignDailyDonorBreakdown(id, days, startUtc, endUtc),
+    ]);
+    const chartData = buildDailyChartSeries(dateKeys, rawChartData, rawDonorBreakdowns);
 
     return toAdminCampaignAnalyticsDto(id, days, chartData);
   }
@@ -224,6 +290,10 @@ export class AdminService {
 
     if (campaign.status === CampaignStatus.SUSPENDED) {
       throw new ConflictError('Campaign is already suspended');
+    }
+
+    if (campaign.status !== CampaignStatus.ACTIVE && campaign.status !== CampaignStatus.CLOSED) {
+      throw new BadRequestError('Only active or closed campaigns can be suspended');
     }
 
     campaign.status = CampaignStatus.SUSPENDED;
@@ -276,7 +346,7 @@ export class AdminService {
       throw new BadRequestError('Campaign is not suspended');
     }
 
-    campaign.status = CampaignStatus.ACTIVE;
+    campaign.status = campaign.isDeadlineReached ? CampaignStatus.CLOSED : CampaignStatus.ACTIVE;
     campaign.suspendReason = null as unknown as string;
     campaign.suspendedAt = null as unknown as Date;
     await CampaignRepository.save(campaign);
@@ -286,30 +356,30 @@ export class AdminService {
       actorId: adminId,
       targetId: id,
       targetType: 'Campaign',
-      metadata: {},
+      metadata: { restoredStatus: campaign.status },
     });
+
+    // Notify campaign creator
+    const creator = await UserRepository.findOne({
+      where: { id: campaign.creatorId },
+    });
+    if (creator) {
+      await emailQueue.add('sendCampaignUnsuspendedEmail', {
+        email: creator.email,
+        creatorName: creator.fullName,
+        campaignTitle: campaign.title,
+        restoredStatus: campaign.status,
+      });
+    }
 
     return campaign;
   }
 
-  async listWithdrawRequests(
-    page: number,
-    limit: number,
-    status?: WithdrawStatus,
-  ) {
-    return WithdrawRepository.findWithPagination(
-      page,
-      limit,
-      status ? { status } : undefined,
-    );
+  async listWithdrawRequests(page: number, limit: number, status?: WithdrawStatus) {
+    return WithdrawRepository.findWithPagination(page, limit, status ? { status } : undefined);
   }
 
-  async processWithdrawRequest(
-    id: string,
-    adminId: string,
-    action: 'approve' | 'reject',
-    rejectReason?: string,
-  ) {
+  async processWithdrawRequest(id: string, adminId: string, action: 'approve' | 'reject', rejectReason?: string) {
     const request = await WithdrawRepository.findOne({
       where: { id },
       relations: ['campaign', 'requester'],
@@ -325,6 +395,7 @@ export class AdminService {
 
     if (action === 'approve') {
       request.status = WithdrawStatus.APPROVED;
+      // TODO: Actual bank transfer logic
       // In production, trigger actual bank transfer here
       request.status = WithdrawStatus.COMPLETED;
 
@@ -354,10 +425,7 @@ export class AdminService {
     await WithdrawRepository.save(request);
 
     await AuditLogRepository.save({
-      action:
-        action === 'approve'
-          ? AuditAction.WITHDRAW_APPROVED
-          : AuditAction.WITHDRAW_REJECTED,
+      action: action === 'approve' ? AuditAction.WITHDRAW_APPROVED : AuditAction.WITHDRAW_REJECTED,
       actorId: adminId,
       targetId: id,
       targetType: 'WithdrawRequest',
@@ -368,11 +436,7 @@ export class AdminService {
   }
 
   async listReports(page: number, limit: number, status?: ReportStatus) {
-    const [reports, total] = await ReportRepository.findWithPagination(
-      page,
-      limit,
-      status,
-    );
+    const [reports, total] = await ReportRepository.findWithPagination(page, limit, status);
     return [reports.map(toReportDetailDto), total] as const;
   }
 
@@ -388,6 +452,14 @@ export class AdminService {
     report.resolvedAt = new Date();
     await ReportRepository.save(report);
 
+    await AuditLogRepository.save({
+      action: AuditAction.REPORT_RESOLVED,
+      actorId: adminId,
+      targetId: id,
+      targetType: 'Report',
+      metadata: { campaignId: report.campaignId },
+    });
+
     // Reload to get resolvedBy relation
     const saved = await ReportRepository.findOne({
       where: { id },
@@ -397,18 +469,8 @@ export class AdminService {
     return toReportDetailDto(saved!);
   }
 
-  async listAllTransactions(
-    page: number,
-    limit: number,
-    search?: string,
-    sortOrder: 'ASC' | 'DESC' = 'DESC',
-  ) {
-    const [donations, total] = await DonationRepository.findAllWithPagination(
-      page,
-      limit,
-      search,
-      sortOrder,
-    );
+  async listAllTransactions(page: number, limit: number, search?: string, sortOrder: 'ASC' | 'DESC' = 'DESC') {
+    const [donations, total] = await DonationRepository.findAllWithPagination(page, limit, search, sortOrder);
     return [donations.map(toCampaignDonationAdminDto), total] as const;
   }
 
@@ -427,6 +489,9 @@ export class AdminService {
     });
     if (!campaign) throw new NotFoundError('Campaign not found');
 
+    const startBoundary = startDate ? getVietnamDayRangeUtc(startDate).startUtc : undefined;
+    const endBoundary = endDate ? getVietnamDayRangeUtc(endDate).endUtc : undefined;
+
     const [donations, total] = await DonationRepository.findByCampaignId(
       campaignId,
       page,
@@ -434,8 +499,8 @@ export class AdminService {
       search,
       sortBy,
       sortOrder,
-      startDate ? new Date(startDate) : undefined,
-      endDate ? new Date(endDate) : undefined,
+      startBoundary,
+      endBoundary,
     );
     return [donations.map(toCampaignDonationAdminDto), total] as const;
   }

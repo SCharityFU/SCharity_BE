@@ -7,8 +7,7 @@ import { WithdrawStatus } from '../entities/WithdrawRequest';
 import { ReportStatus } from '../entities/Report';
 import { CampaignStatus } from '../entities/Campaign';
 
-const getPages = (query: Record<string, unknown>) =>
-  getPaginationParams(query.page as string, query.limit as string);
+const getPages = (query: Record<string, unknown>) => getPaginationParams(query.page as string, query.limit as string);
 
 export const adminController = {
   async getDashboardStats(_req: Request, res: Response, next: NextFunction) {
@@ -23,8 +22,7 @@ export const adminController = {
   async getDonationChartData(req: Request, res: Response, next: NextFunction) {
     try {
       const days = Number(req.query.days) || 30;
-      const interval =
-        (req.query.interval as 'day' | 'week' | 'month') || 'day';
+      const interval = (req.query.interval as 'day' | 'week' | 'month') || 'day';
       const data = await adminService.getDonationChartData(interval, days);
       sendSuccess(res, data);
     } catch (err) {
@@ -35,23 +33,15 @@ export const adminController = {
   async listCampaignRequests(req: Request, res: Response, next: NextFunction) {
     try {
       const { page, limit } = getPages(req.query);
-      const status = req.query.status as CampaignRequestStatus | undefined;
-      const [data, total] = await adminService.listCampaignRequests(
-        page,
-        limit,
-        status,
-      );
+      const status = (req.query.status as CampaignRequestStatus | undefined) ?? CampaignRequestStatus.PENDING;
+      const [data, total] = await adminService.listCampaignRequests(page, limit, status);
       sendPaginated(res, data, { total, page, limit });
     } catch (err) {
       next(err);
     }
   },
 
-  async getCampaignRequestById(
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ) {
+  async getCampaignRequestById(req: Request, res: Response, next: NextFunction) {
     try {
       const request = await adminService.getCampaignRequestById(req.params.id);
       sendSuccess(res, request);
@@ -66,12 +56,7 @@ export const adminController = {
         action: 'approve' | 'reject';
         rejectReason?: string;
       };
-      const result = await adminService.reviewCampaignRequest(
-        req.params.id,
-        req.user!.id,
-        action,
-        rejectReason,
-      );
+      const result = await adminService.reviewCampaignRequest(req.params.id, req.user!.id, action, rejectReason);
       sendSuccess(res, result, 'Campaign request reviewed');
     } catch (err) {
       next(err);
@@ -107,7 +92,7 @@ export const adminController = {
     try {
       const days = Number(req.query.days) || 30;
       const data = await adminService.getCampaignAnalytics(req.params.id, days);
-      sendSuccess(res, data);
+      sendSuccess(res, data, 'Campaign analytics fetched successfully');
     } catch (err) {
       next(err);
     }
@@ -115,11 +100,7 @@ export const adminController = {
 
   async suspendCampaign(req: Request, res: Response, next: NextFunction) {
     try {
-      const campaign = await adminService.suspendCampaign(
-        req.params.id,
-        req.user!.id,
-        req.body.reason,
-      );
+      const campaign = await adminService.suspendCampaign(req.params.id, req.user!.id, req.body.reason);
       sendSuccess(res, campaign, 'Campaign suspended');
     } catch (err) {
       next(err);
@@ -128,10 +109,7 @@ export const adminController = {
 
   async unsuspendCampaign(req: Request, res: Response, next: NextFunction) {
     try {
-      const campaign = await adminService.unsuspendCampaign(
-        req.params.id,
-        req.user!.id,
-      );
+      const campaign = await adminService.unsuspendCampaign(req.params.id, req.user!.id);
       sendSuccess(res, campaign, 'Campaign unsuspended');
     } catch (err) {
       next(err);
@@ -142,22 +120,14 @@ export const adminController = {
     try {
       const { page, limit } = getPages(req.query);
       const status = req.query.status as WithdrawStatus | undefined;
-      const [data, total] = await adminService.listWithdrawRequests(
-        page,
-        limit,
-        status,
-      );
+      const [data, total] = await adminService.listWithdrawRequests(page, limit, status);
       sendPaginated(res, data, { total, page, limit });
     } catch (err) {
       next(err);
     }
   },
 
-  async getWithdrawRequestById(
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ) {
+  async getWithdrawRequestById(req: Request, res: Response, next: NextFunction) {
     try {
       const request = await adminService.getWithdrawRequestById(req.params.id);
       sendSuccess(res, request);
@@ -166,11 +136,7 @@ export const adminController = {
     }
   },
 
-  async processWithdrawRequest(
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ) {
+  async processWithdrawRequest(req: Request, res: Response, next: NextFunction) {
     try {
       const { action, rejectReason } = req.body;
       const result = await adminService.processWithdrawRequest(
@@ -223,10 +189,7 @@ export const adminController = {
 
   async resolveReport(req: Request, res: Response, next: NextFunction) {
     try {
-      const report = await adminService.resolveReport(
-        req.params.id,
-        req.user!.id,
-      );
+      const report = await adminService.resolveReport(req.params.id, req.user!.id);
       sendSuccess(res, report, 'Report resolved');
     } catch (err) {
       next(err);
@@ -238,28 +201,18 @@ export const adminController = {
       const { page, limit } = getPages(req.query);
       const search = req.query.search as string | undefined;
       const sortOrder = (req.query.sortOrder as 'ASC' | 'DESC') || 'DESC';
-      const [data, total] = await adminService.listAllTransactions(
-        page,
-        limit,
-        search,
-        sortOrder,
-      );
+      const [data, total] = await adminService.listAllTransactions(page, limit, search, sortOrder);
       sendPaginated(res, data, { total, page, limit });
     } catch (err) {
       next(err);
     }
   },
 
-  async getCampaignTransactions(
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ) {
+  async getCampaignTransactions(req: Request, res: Response, next: NextFunction) {
     try {
       const { page, limit } = getPages(req.query);
       const search = req.query.search as string | undefined;
-      const sortBy =
-        (req.query.sortBy as 'createdAt' | 'amount') || 'createdAt';
+      const sortBy = (req.query.sortBy as 'createdAt' | 'amount') || 'createdAt';
       const sortOrder = (req.query.sortOrder as 'ASC' | 'DESC') || 'DESC';
       const startDate = req.query.startDate as string | undefined;
       const endDate = req.query.endDate as string | undefined;

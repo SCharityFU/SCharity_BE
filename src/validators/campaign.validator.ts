@@ -3,38 +3,46 @@ import { CampaignCategory } from '../entities/Campaign';
 import { UpdateCategory } from '../entities/CampaignUpdate';
 
 export const createCampaignRequestSchema = z.object({
-  title: z.string().min(5, 'Title must be at least 5 characters').max(100, 'Title is too long'),
-  story: z.string().min(50, 'Story must be at least 50 characters'),
+  title: z.string().min(5, 'Tiêu đề phải có ít nhất 5 ký tự').max(100, 'Tiêu đề không được vượt quá 100 ký tự'),
+
+  story: z.string().min(50, 'Nội dung câu chuyện phải có ít nhất 50 ký tự'),
+
   goalAmount: z
     .union([z.number(), z.string().transform((v) => Number(v))])
     .pipe(
-      z.number().positive('Goal amount must be positive').min(1000000, 'Minimum goal amount is 1,000,000 VND'),
+      z.number().positive('Số tiền mục tiêu phải lớn hơn 0').min(30000, 'Số tiền quyên góp tối thiểu là 30.000 VND'),
     ),
+
   deadline: z
     .string()
     .datetime()
     .refine((d) => new Date(d) > new Date(), {
-      message: 'Deadline must be in the future',
+      message: 'Thời hạn kết thúc phải nằm trong tương lai',
     }),
+
   category: z.nativeEnum(CampaignCategory).optional().default(CampaignCategory.OTHER),
+
   bankInfo: z.preprocess(
     (val) => {
       if (typeof val === 'string') {
-        try { return JSON.parse(val); } catch { return val; }
+        try {
+          return JSON.parse(val);
+        } catch {
+          return val;
+        }
       }
       return val;
     },
     z.object({
-      bankName: z.string().min(1, 'Bank name is required'),
-      accountNumber: z
-        .string()
-        .min(1, 'Account number is required')
-        .regex(/^\d+$/, 'Account number must contain only digits'),
+      bankName: z.string().min(1, 'Tên ngân hàng là bắt buộc'),
+
+      accountNumber: z.string().min(1, 'Số tài khoản là bắt buộc').regex(/^\d+$/, 'Số tài khoản chỉ được chứa chữ số'),
+
       accountHolderName: z
         .string()
-        .min(1, 'Account holder name is required')
-        .regex(/^[A-Za-z\s]+$/, 'Account holder name must not contain diacritics or special characters')
-        .toUpperCase(),
+        .min(1, 'Tên chủ tài khoản là bắt buộc')
+        .regex(/^[A-Za-z\s]+$/, 'Tên chủ tài khoản chỉ được chứa chữ cái không dấu và khoảng trắng')
+        .transform((v) => v.toUpperCase()),
     }),
   ),
 });
@@ -43,21 +51,24 @@ export const updateBankInfoSchema = z.object({
   bankInfo: z.preprocess(
     (val) => {
       if (typeof val === 'string') {
-        try { return JSON.parse(val); } catch { return val; }
+        try {
+          return JSON.parse(val);
+        } catch {
+          return val;
+        }
       }
       return val;
     },
     z.object({
-      bankName: z.string().min(1, 'Bank name is required'),
-      accountNumber: z
-        .string()
-        .min(1, 'Account number is required')
-        .regex(/^\d+$/, 'Account number must contain only digits'),
+      bankName: z.string().min(1, 'Tên ngân hàng là bắt buộc'),
+
+      accountNumber: z.string().min(1, 'Số tài khoản là bắt buộc').regex(/^\d+$/, 'Số tài khoản chỉ được chứa chữ số'),
+
       accountHolderName: z
         .string()
-        .min(1, 'Account holder name is required')
-        .regex(/^[A-Za-z\s]+$/, 'Account holder name must not contain diacritics or special characters')
-        .toUpperCase(),
+        .min(1, 'Tên chủ tài khoản là bắt buộc')
+        .regex(/^[A-Za-z\s]+$/, 'Tên chủ tài khoản chỉ được chứa chữ cái không dấu và khoảng trắng')
+        .transform((v) => v.toUpperCase()),
     }),
   ),
 });
@@ -65,41 +76,52 @@ export const updateBankInfoSchema = z.object({
 export const reviewCampaignRequestSchema = z
   .object({
     action: z.enum(['approve', 'reject']),
-    rejectReason: z.string().min(10, 'Reject reason must be at least 10 characters').optional(),
+    rejectReason: z.string().min(10, 'Lý do từ chối phải có ít nhất 10 ký tự').optional(),
   })
-  .refine(
-    (data) => data.action !== 'reject' || (data.rejectReason && data.rejectReason.length > 0),
-    { message: 'Reject reason is required when rejecting', path: ['rejectReason'] },
-  );
+  .refine((data) => data.action !== 'reject' || (data.rejectReason && data.rejectReason.length > 0), {
+    message: 'Vui lòng nhập lý do khi từ chối yêu cầu',
+    path: ['rejectReason'],
+  });
 
 export const updateCampaignSchema = z.object({
-  story: z.string().min(50).optional(),
-  thumbnailUrl: z.string().url().optional(),
+  story: z.string().min(50, 'Nội dung câu chuyện phải có ít nhất 50 ký tự').optional(),
+
+  thumbnailUrl: z.string().url('Đường dẫn ảnh không hợp lệ').optional(),
 });
 
 export const updateCampaignRequestSchema = z.object({
-  title: z.string().min(5, 'Title must be at least 5 characters').max(100, 'Title is too long').optional(),
-  story: z.string().min(50, 'Story must be at least 50 characters').optional(),
+  title: z
+    .string()
+    .min(5, 'Tiêu đề phải có ít nhất 5 ký tự')
+    .max(100, 'Tiêu đề không được vượt quá 100 ký tự')
+    .optional(),
+
+  story: z.string().min(50, 'Nội dung câu chuyện phải có ít nhất 50 ký tự').optional(),
+
   goalAmount: z
     .union([z.number(), z.string().transform((v) => Number(v))])
-    .pipe(z.number().positive('Goal amount must be positive').min(1000000, 'Minimum goal amount is 1,000,000 VND'))
+    .pipe(z.number().positive('Số tiền mục tiêu phải lớn hơn 0').min(30000, 'Số tiền tối thiểu là 30.000 VND'))
     .optional(),
+
   deadline: z
     .string()
     .datetime()
-    .refine((d) => new Date(d) > new Date(), { message: 'Deadline must be in the future' })
+    .refine((d) => new Date(d) > new Date(), {
+      message: 'Thời hạn kết thúc phải nằm trong tương lai',
+    })
     .optional(),
-  category: z.nativeEnum(CampaignCategory).optional()
+
+  category: z.nativeEnum(CampaignCategory).optional(),
 });
 
 export const suspendCampaignSchema = z.object({
-  reason: z.string().min(10, 'Reason must be at least 10 characters'),
+  reason: z.string().min(10, 'Lý do tạm dừng chiến dịch phải có ít nhất 10 ký tự'),
 });
 
 export const closeCampaignSchema = z.object({
-  confirm: z
-    .boolean()
-    .refine((v) => v === true, { message: 'Please confirm closing the campaign' }),
+  confirm: z.boolean().refine((v) => v === true, {
+    message: 'Vui lòng xác nhận đóng chiến dịch',
+  }),
 });
 
 export const campaignQuerySchema = z.object({
@@ -107,25 +129,47 @@ export const campaignQuerySchema = z.object({
     .string()
     .optional()
     .transform((v) => parseInt(v || '1')),
+
   limit: z
     .string()
     .optional()
     .transform((v) => Math.min(50, parseInt(v || '10'))),
+
   status: z.string().optional(),
+
   category: z.nativeEnum(CampaignCategory).optional(),
+
   search: z.string().optional(),
-  sortBy: z
-    .enum(['createdAt', 'raisedAmount', 'deadline', 'goalAmount'])
-    .optional()
-    .default('createdAt'),
+
+  sortBy: z.enum(['createdAt', 'raisedAmount', 'deadline', 'goalAmount']).optional().default('createdAt'),
+
   sortOrder: z.enum(['ASC', 'DESC']).optional().default('DESC'),
 });
 
 export const createCampaignUpdateSchema = z.object({
-  title: z.string().min(5, 'Title must be at least 5 characters').max(100),
-  content: z.string().min(10, 'Content must be at least 10 characters'),
+  title: z.string().min(5, 'Tiêu đề phải có ít nhất 5 ký tự').max(100, 'Tiêu đề không được vượt quá 100 ký tự'),
+
+  content: z.string().min(10, 'Nội dung phải có ít nhất 10 ký tự'),
+
   category: z.nativeEnum(UpdateCategory).optional().default(UpdateCategory.PROGRESS),
-  isDraft: z.string().optional().default('false'),
+  isDraft: z.boolean().optional().default(true),
+});
+
+export const updateCampaignUpdateSchema = z.object({
+  title: z.string().min(5, 'Title must be at least 5 characters').max(100).optional(),
+  content: z.string().min(10, 'Content must be at least 10 characters').optional(),
+  category: z.nativeEnum(UpdateCategory).optional(),
+  isDraft: z.boolean().optional().default(true),
+});
+
+export const campaignAnalyticsQuerySchema = z.object({
+  days: z
+    .string()
+    .optional()
+    .transform((v) => {
+      const parsed = parseInt(v || '30', 10);
+      return Number.isNaN(parsed) ? 30 : Math.min(365, Math.max(1, parsed));
+    }),
 });
 
 export type CreateCampaignRequestDto = z.infer<typeof createCampaignRequestSchema>;
@@ -135,4 +179,6 @@ export type UpdateCampaignRequestDto = z.infer<typeof updateCampaignRequestSchem
 export type SuspendCampaignDto = z.infer<typeof suspendCampaignSchema>;
 export type CampaignQueryDto = z.infer<typeof campaignQuerySchema>;
 export type CreateCampaignUpdateDto = z.infer<typeof createCampaignUpdateSchema>;
+export type UpdateCampaignUpdateDto = z.infer<typeof updateCampaignUpdateSchema>;
 export type UpdateBankInfoDto = z.infer<typeof updateBankInfoSchema>;
+export type CampaignAnalyticsQueryDto = z.infer<typeof campaignAnalyticsQuerySchema>;

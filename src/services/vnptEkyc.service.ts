@@ -131,9 +131,6 @@ async function faceCompare(frontHash: string, selfieHash: string, clientSession:
   return response.data;
 }
 
-
-
-
 /**
  * Check if the face is a real person (not a photo/screen spoof)
  */
@@ -165,7 +162,11 @@ export async function performKyc(request: KycRequest): Promise<KycResponse> {
     // Step 1: Face Liveness check to prevent spoofing
     const faceLivenessData = await checkFaceLiveness(selfieHash, clientSession);
     if (faceLivenessData?.object?.liveness !== 'success') {
-      return { success: false, message: 'Nhận diện khuôn mặt không hợp lệ. Hãy chụp trực tiếp người thật, không sử dụng ảnh in hoặc màn hình thiết bị khác.' };
+      return {
+        success: false,
+        message:
+          'Nhận diện khuôn mặt không hợp lệ. Hãy chụp trực tiếp người thật, không sử dụng ảnh in hoặc màn hình thiết bị khác.',
+      };
     }
 
     // Step 1: OCR front side
@@ -194,7 +195,8 @@ export async function performKyc(request: KycRequest): Promise<KycResponse> {
       faceMatchScore,
     };
   } catch (error: any) {
-    console.error('[VNPT eKYC] Error:', error.response?.data || error.message);
+    console.error('[VNPT eKYC] Error response data:', error.response?.data);
+    console.error('[VNPT eKYC] Error message:', error.message);
     return {
       success: false,
       message: `KYC verification failed: ${error.response?.data?.message || error.message}`,

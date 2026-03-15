@@ -103,16 +103,68 @@ export const DonationRepository = AppDataSource.getRepository(Donation).extend({
   async getDonationChartData(
     campaignId: string,
     days = 30,
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<Array<{ date: string; amount: number; count: number }>> {
-    return this.createQueryBuilder('donation')
-      .select("DATE_TRUNC('day', donation.createdAt)", 'date')
+    const query = this.createQueryBuilder('donation')
+      .select("TO_CHAR(DATE_TRUNC('day', donation.createdAt AT TIME ZONE 'Asia/Ho_Chi_Minh'), 'YYYY-MM-DD')", 'date')
       .addSelect('SUM(donation.amount)', 'amount')
       .addSelect('COUNT(*)', 'count')
       .where('donation.campaignId = :campaignId', { campaignId })
-      .andWhere('donation.status = :status', { status: DonationStatus.SUCCESS })
-      .andWhere(`donation.createdAt >= NOW() - INTERVAL '${days} days'`)
-      .groupBy("DATE_TRUNC('day', donation.createdAt)")
-      .orderBy("DATE_TRUNC('day', donation.createdAt)", 'ASC')
+      .andWhere('donation.status = :status', { status: DonationStatus.SUCCESS });
+
+    if (startDate && endDate) {
+      query
+        .andWhere('donation.createdAt >= :startDate', { startDate })
+        .andWhere('donation.createdAt <= :endDate', { endDate });
+    } else {
+      query.andWhere(`donation.createdAt >= NOW() - INTERVAL '${days} days'`);
+    }
+
+    return query
+      .groupBy("TO_CHAR(DATE_TRUNC('day', donation.createdAt AT TIME ZONE 'Asia/Ho_Chi_Minh'), 'YYYY-MM-DD')")
+      .orderBy("TO_CHAR(DATE_TRUNC('day', donation.createdAt AT TIME ZONE 'Asia/Ho_Chi_Minh'), 'YYYY-MM-DD')", 'ASC')
+      .getRawMany();
+  },
+
+  async getCampaignDailyDonorBreakdown(
+    campaignId: string,
+    days = 30,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<
+    Array<{
+      date: string;
+      donorId: string;
+      donorName: string;
+      totalAmount: number;
+      donationCount: number;
+    }>
+  > {
+    const query = this.createQueryBuilder('donation')
+      .leftJoin('donation.donor', 'donor')
+      .select("TO_CHAR(DATE_TRUNC('day', donation.createdAt AT TIME ZONE 'Asia/Ho_Chi_Minh'), 'YYYY-MM-DD')", 'date')
+      .addSelect("COALESCE(CAST(donation.donorId AS text), 'guest')", 'donorId')
+      .addSelect("COALESCE(donor.fullName, 'Guest donor')", 'donorName')
+      .addSelect('SUM(donation.amount)', 'totalAmount')
+      .addSelect('COUNT(*)', 'donationCount')
+      .where('donation.campaignId = :campaignId', { campaignId })
+      .andWhere('donation.status = :status', { status: DonationStatus.SUCCESS });
+
+    if (startDate && endDate) {
+      query
+        .andWhere('donation.createdAt >= :startDate', { startDate })
+        .andWhere('donation.createdAt <= :endDate', { endDate });
+    } else {
+      query.andWhere(`donation.createdAt >= NOW() - INTERVAL '${days} days'`);
+    }
+
+    return query
+      .groupBy("TO_CHAR(DATE_TRUNC('day', donation.createdAt AT TIME ZONE 'Asia/Ho_Chi_Minh'), 'YYYY-MM-DD')")
+      .addGroupBy('donation.donorId')
+      .addGroupBy('donor.fullName')
+      .orderBy("TO_CHAR(DATE_TRUNC('day', donation.createdAt AT TIME ZONE 'Asia/Ho_Chi_Minh'), 'YYYY-MM-DD')", 'ASC')
+      .addOrderBy('SUM(donation.amount)', 'DESC')
       .getRawMany();
   },
 

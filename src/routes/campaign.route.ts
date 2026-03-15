@@ -18,6 +18,7 @@ import {
   createCampaignUpdateSchema,
   updateCampaignUpdateSchema,
   updateBankInfoSchema,
+  campaignAnalyticsQuerySchema,
 } from '../validators/campaign.validator';
 import { createCommentSchema } from '../validators/donation.validator';
 import { reportCampaignSchema } from '../validators/user.validator';
@@ -84,7 +85,14 @@ const router = Router();
  *       422:
  *         description: Validation error
  */
-router.post('/requests', authenticate, uploadCampaignFiles, parseMultipartBody, validate(createCampaignRequestSchema), campaignController.submitRequest);
+router.post(
+  '/requests',
+  authenticate,
+  uploadCampaignFiles,
+  parseMultipartBody,
+  validate(createCampaignRequestSchema),
+  campaignController.submitRequest,
+);
 
 /**
  * @swagger
@@ -200,7 +208,12 @@ router.get('/requests/mine/:requestId', authenticate, campaignController.getMyRe
  *       422:
  *         description: Validation error
  */
-router.put('/requests/:requestId/bank-info', authenticate, validate(updateBankInfoSchema), campaignController.updateRequestBankInfo);
+router.put(
+  '/requests/:requestId/bank-info',
+  authenticate,
+  validate(updateBankInfoSchema),
+  campaignController.updateRequestBankInfo,
+);
 
 router.post('/editor-image', authenticate, uploadEditorImage, campaignController.uploadEditorImage);
 
@@ -279,7 +292,14 @@ router.post('/editor-image', authenticate, uploadEditorImage, campaignController
  *       422:
  *         description: Validation error
  */
-router.put('/requests/:requestId', authenticate, uploadCampaignFiles, parseMultipartBody, validate(updateCampaignRequestSchema), campaignController.updateCampaignRequest);
+router.put(
+  '/requests/:requestId',
+  authenticate,
+  uploadCampaignFiles,
+  parseMultipartBody,
+  validate(updateCampaignRequestSchema),
+  campaignController.updateCampaignRequest,
+);
 
 /**
  * @swagger
@@ -366,12 +386,7 @@ router.get('/mine', authenticate, campaignController.getMyCampaigns);
  *                     pagination:
  *                       $ref: '#/components/schemas/PaginationMeta'
  */
-router.get(
-  '/',
-  optionalAuthenticate,
-  validateQuery(campaignQuerySchema),
-  campaignController.listCampaigns,
-);
+router.get('/', optionalAuthenticate, validateQuery(campaignQuerySchema), campaignController.listCampaigns);
 
 /**
  * @swagger
@@ -543,12 +558,7 @@ router.get('/:campaignId/comments', donationController.getComments);
  *       403:
  *         description: You must donate to this campaign before commenting
  */
-router.post(
-  '/:campaignId/comments',
-  authenticate,
-  validate(createCommentSchema),
-  donationController.createComment,
-);
+router.post('/:campaignId/comments', authenticate, validate(createCommentSchema), donationController.createComment);
 
 /**
  * @swagger
@@ -713,6 +723,45 @@ router.post('/:id/close', authenticate, campaignController.closeCampaign);
  *         description: Not the campaign owner
  */
 router.get('/:id/analytics', authenticate, campaignController.getCampaignAnalytics);
+
+/**
+ * @swagger
+ * /campaigns/{id}/creator-analytics:
+ *   get:
+ *     summary: Get admin-like campaign analytics for creator (owner only)
+ *     description: |
+ *       Returns a daily chart payload for the campaign owner, including optional
+ *       top donor breakdown per day.
+ *
+ *       Access rules:
+ *       - Requires JWT
+ *       - Caller must be the creator of the campaign
+ *     tags: [Campaigns]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/idParam'
+ *       - in: query
+ *         name: days
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 365
+ *           default: 30
+ *     responses:
+ *       200:
+ *         description: Creator analytics payload
+ *       403:
+ *         description: Caller is not the campaign creator
+ *       404:
+ *         description: Campaign not found
+ */
+router.get(
+  '/:id/creator-analytics',
+  authenticate,
+  validateQuery(campaignAnalyticsQuerySchema),
+  campaignController.getCreatorCampaignAnalytics,
+);
 
 /**
  * @swagger

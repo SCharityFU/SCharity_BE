@@ -26,6 +26,7 @@ export enum CampaignStatus {
 }
 
 export enum CampaignCategory {
+  DAVA = 'dava',
   EDUCATION = 'education',
   MEDICAL = 'medical',
   DISASTER = 'disaster',
@@ -52,6 +53,10 @@ export class Campaign {
 
   @Column({ type: 'decimal', precision: 15, scale: 0, default: 0 })
   raisedAmount: number;
+
+  // Use to track how many money has been withdrawn from this campaign
+  @Column({ type: 'decimal', precision: 15, scale: 0, default: 0 })
+  withdrawnAmount: number;
 
   @Column({ type: 'timestamp' })
   deadline: Date;

@@ -6,17 +6,14 @@ import { sendSuccess, sendCreated, sendPaginated } from '../utils/response';
 import { getPaginationParams } from '../utils/pagination';
 import { BadRequestError } from '../utils/errors';
 
-const getPages = (query: Record<string, unknown>) =>
-  getPaginationParams(query.page as string, query.limit as string);
+const getPages = (query: Record<string, unknown>) => getPaginationParams(query.page as string, query.limit as string);
 
 export const campaignController = {
   // Public: list campaigns
   async listCampaigns(req: Request, res: Response, next: NextFunction) {
     try {
       const { page, limit } = getPages(req.query);
-      const query = { ...req.query, page, limit } as Parameters<
-        typeof campaignService.listCampaigns
-      >[0];
+      const query = { ...req.query, page, limit } as Parameters<typeof campaignService.listCampaigns>[0];
       const { campaigns, total } = await campaignService.listCampaigns(query);
       sendPaginated(res, campaigns, { total, page, limit });
     } catch (err) {
@@ -127,11 +124,7 @@ export const campaignController = {
   // CampaignCreator: update bank info for a campaign request
   async updateRequestBankInfo(req: Request, res: Response, next: NextFunction) {
     try {
-      const request = await campaignService.updateRequestBankInfo(
-        req.params.requestId,
-        req.user!.id,
-        req.body,
-      );
+      const request = await campaignService.updateRequestBankInfo(req.params.requestId, req.user!.id, req.body);
       sendSuccess(res, request, 'Bank information updated successfully');
     } catch (err) {
       next(err);
@@ -176,16 +169,12 @@ export const campaignController = {
         proofDocuments.push(url);
       }
 
-      const request = await campaignService.updateCampaignRequest(
-        req.params.requestId,
-        req.user!.id,
-        {
-          ...req.body,
-          ...(thumbnailUrl ? { thumbnailUrl } : {}),
-          ...(mediaUrls.length > 0 ? { mediaUrls } : {}),
-          ...(proofDocuments.length > 0 ? { proofDocuments } : {}),
-        },
-      );
+      const request = await campaignService.updateCampaignRequest(req.params.requestId, req.user!.id, {
+        ...req.body,
+        ...(thumbnailUrl ? { thumbnailUrl } : {}),
+        ...(mediaUrls.length > 0 ? { mediaUrls } : {}),
+        ...(proofDocuments.length > 0 ? { proofDocuments } : {}),
+      });
       sendSuccess(res, request, 'Campaign request updated successfully');
     } catch (err) {
       next(err);
@@ -248,6 +237,17 @@ export const campaignController = {
     }
   },
 
+  // CampaignCreator: get chart analytics with daily donor breakdown
+  async getCreatorCampaignAnalytics(req: Request, res: Response, next: NextFunction) {
+    try {
+      const days = Number(req.query.days) || 30;
+      const data = await campaignService.getCreatorCampaignAnalytics(req.params.id, req.user!.id, days);
+      sendSuccess(res, data, 'Campaign analytics fetched successfully');
+    } catch (err) {
+      next(err);
+    }
+  },
+
   // Public: get campaign updates
   async getCampaignUpdates(req: Request, res: Response, next: NextFunction) {
     try {
@@ -273,12 +273,7 @@ export const campaignController = {
 
       if (files && files.length > 0) {
         for (let i = 0; i < files.length; i++) {
-          const url = await storageService.uploadUpdateMedia(
-            files[i].buffer,
-            req.params.id,
-            i,
-            files[i].mimetype,
-          );
+          const url = await storageService.uploadUpdateMedia(files[i].buffer, req.params.id, i, files[i].mimetype);
           mediaUrls.push(url);
         }
       }

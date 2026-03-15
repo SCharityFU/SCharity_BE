@@ -11,10 +11,10 @@ export const processWithdrawRequestSchema = z
     action: z.enum(['approve', 'reject']),
     rejectReason: z.string().min(10, 'Reject reason must be at least 10 characters').optional(),
   })
-  .refine(
-    (data) => data.action !== 'reject' || (data.rejectReason && data.rejectReason.length > 0),
-    { message: 'Reject reason is required when rejecting', path: ['rejectReason'] },
-  );
+  .refine((data) => data.action !== 'reject' || (data.rejectReason && data.rejectReason.length > 0), {
+    message: 'Reject reason is required when rejecting',
+    path: ['rejectReason'],
+  });
 
 export type CreateWithdrawRequestDto = z.infer<typeof createWithdrawRequestSchema>;
 export type ProcessWithdrawRequestDto = z.infer<typeof processWithdrawRequestSchema>;

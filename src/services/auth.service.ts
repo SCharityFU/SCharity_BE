@@ -6,19 +6,14 @@ import { User, UserRole } from '../entities/User';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../utils/jwt';
 import { ConflictError, UnauthorizedError, NotFoundError, BadRequestError } from '../utils/errors';
 import { RegisterDto, LoginDto } from '../validators/auth.validator';
-import { emailQueue } from '../queues/email.queue';
 import { emailService } from './email.service';
 import redisClient from '../config/redis';
 
 const REFRESH_TOKEN_TTL = 30 * 24 * 60 * 60; // 30 days in seconds
 const SALT_ROUNDS = 12;
 
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-
 export class AuthService {
-  async register(
-    dto: RegisterDto,
-  ): Promise<{ user: Partial<User>; accessToken: string; refreshToken: string }> {
+  async register(dto: RegisterDto): Promise<{ user: Partial<User>; accessToken: string; refreshToken: string }> {
     const existingUser = await UserRepository.findByEmail(dto.email);
     if (existingUser) {
       throw new ConflictError('Email này đã được đăng ký');
@@ -39,13 +34,9 @@ export class AuthService {
 
     // Send verification email directly instead of queueing to avoid Redis timeout errors
     try {
-      await emailService.sendVerificationEmail(
-        user.email,
-        user.fullName,
-        verificationToken
-      );
+      await emailService.sendVerificationEmail(user.email, user.fullName, verificationToken);
     } catch (error) {
-      console.error("Failed to send verification email:", error);
+      console.error('Failed to send verification email:', error);
       // Registration successful even if email fails, user can request resend
     }
 
@@ -58,9 +49,7 @@ export class AuthService {
     };
   }
 
-  async login(
-    dto: LoginDto,
-  ): Promise<{ user: Partial<User>; accessToken: string; refreshToken: string }> {
+  async login(dto: LoginDto): Promise<{ user: Partial<User>; accessToken: string; refreshToken: string }> {
     const user = await UserRepository.findByEmailWithPassword(dto.email);
     if (!user) {
       throw new UnauthorizedError('Email hoặc mật khẩu không đúng');
@@ -82,16 +71,14 @@ export class AuthService {
       await UserRepository.save(user);
 
       try {
-        await emailService.sendVerificationEmail(
-          user.email,
-          user.fullName,
-          verificationToken
-        );
+        await emailService.sendVerificationEmail(user.email, user.fullName, verificationToken);
       } catch (error) {
-        console.error("Failed to resend verification email:", error);
+        console.error('Failed to resend verification email:', error);
       }
 
-      throw new UnauthorizedError('Tài khoản chưa được xác thực. Chúng tôi đã gửi lại email xác thực, vui lòng kiểm tra hộp thư của bạn.');
+      throw new UnauthorizedError(
+        'Tài khoản chưa được xác thực. Chúng tôi đã gửi lại email xác thực, vui lòng kiểm tra hộp thư của bạn.',
+      );
     }
 
     const tokens = this.generateTokens(user);
@@ -163,7 +150,9 @@ export class AuthService {
     };
   }
 
-  async googleLoginWithToken(accessToken: string): Promise<{ user: Partial<User>; accessToken: string; refreshToken: string }> {
+  async googleLoginWithToken(
+    accessToken: string,
+  ): Promise<{ user: Partial<User>; accessToken: string; refreshToken: string }> {
     try {
       const { OAuth2Client } = require('google-auth-library');
       const oAuth2Client = new OAuth2Client();
@@ -187,11 +176,10 @@ export class AuthService {
 
       return this.googleLogin(profile);
     } catch (error) {
-       console.error("Google Auth Error:", error);
-       throw new UnauthorizedError('Xác thực token Google thất bại');
+      console.error('Google Auth Error:', error);
+      throw new UnauthorizedError('Xác thực token Google thất bại');
     }
   }
-
 
   async forgotPassword(email: string): Promise<void> {
     const user = await UserRepository.findByEmail(email);
@@ -205,13 +193,9 @@ export class AuthService {
     await UserRepository.save(user);
 
     try {
-      await emailService.sendPasswordResetEmail(
-        user.email,
-        user.fullName,
-        resetToken
-      );
+      await emailService.sendPasswordResetEmail(user.email, user.fullName, resetToken);
     } catch (error) {
-      console.error("Failed to send reset password email:", error);
+      console.error('Failed to send reset password email:', error);
     }
   }
 
@@ -242,11 +226,7 @@ export class AuthService {
     await UserRepository.save(user);
   }
 
-  async changePassword(
-    userId: string,
-    currentPassword: string,
-    newPassword: string,
-  ): Promise<void> {
+  async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void> {
     const user = await UserRepository.createQueryBuilder('user')
       .addSelect('user.password')
       .where('user.id = :id', { id: userId })

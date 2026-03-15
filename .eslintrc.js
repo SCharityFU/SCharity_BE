@@ -6,11 +6,7 @@ module.exports = {
     sourceType: 'module',
   },
   plugins: ['@typescript-eslint/eslint-plugin', 'prettier'],
-  extends: [
-    'plugin:@typescript-eslint/recommended',
-    'eslint-config-prettier',
-    'plugin:prettier/recommended',
-  ],
+  extends: ['plugin:@typescript-eslint/recommended', 'eslint-config-prettier', 'plugin:prettier/recommended'],
   root: true,
   env: {
     node: true,
@@ -23,15 +19,10 @@ module.exports = {
     '@typescript-eslint/explicit-module-boundary-types': 'off',
     '@typescript-eslint/no-explicit-any': 'warn',
     '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
-    'prettier/prettier': [
-      'error',
-      {
-        singleQuote: true,
-        trailingComma: 'all',
-        printWidth: 100,
-        endOfLine: 'auto',
-      },
-    ],
+
+    'prettier/prettier': 'off', // disable formatting enforcement
+
     'no-console': 'warn',
+    'function-paren-newline': 'off',
   },
 };

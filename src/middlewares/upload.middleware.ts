@@ -7,11 +7,7 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 const storage = multer.memoryStorage();
 
-const imageFileFilter = (
-  _req: Express.Request,
-  file: Express.Multer.File,
-  callback: multer.FileFilterCallback,
-) => {
+const imageFileFilter = (_req: Express.Request, file: Express.Multer.File, callback: multer.FileFilterCallback) => {
   if (ALLOWED_IMAGE_TYPES.has(file.mimetype)) {
     callback(null, true);
   } else {
@@ -19,11 +15,15 @@ const imageFileFilter = (
   }
 };
 
-const docFileFilter = (
-  _req: Express.Request,
-  file: Express.Multer.File,
-  callback: multer.FileFilterCallback,
-) => {
+const docFileFilter = (_req: Express.Request, file: Express.Multer.File, callback: multer.FileFilterCallback) => {
+  if (ALLOWED_DOC_TYPES.has(file.mimetype)) {
+    callback(null, true);
+  } else {
+    callback(new BadRequestError('Only image and PDF files are allowed'));
+  }
+};
+
+const userAssetFileFilter = (_req: Express.Request, file: Express.Multer.File, callback: multer.FileFilterCallback) => {
   if (ALLOWED_DOC_TYPES.has(file.mimetype)) {
     callback(null, true);
   } else {
@@ -54,6 +54,18 @@ export const uploadDocument = multer({
   limits: { fileSize: MAX_FILE_SIZE },
   fileFilter: docFileFilter,
 }).single('document');
+
+export const uploadUserAsset = multer({
+  storage,
+  limits: { fileSize: MAX_FILE_SIZE },
+  fileFilter: userAssetFileFilter,
+}).single('file');
+
+export const uploadUserAssets = multer({
+  storage,
+  limits: { fileSize: MAX_FILE_SIZE, files: 10 },
+  fileFilter: userAssetFileFilter,
+}).array('files', 10);
 
 export const uploadMultiple = multer({
   storage,

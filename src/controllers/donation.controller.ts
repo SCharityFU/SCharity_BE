@@ -3,8 +3,7 @@ import { donationService } from '../services/donation.service';
 import { sendSuccess, sendCreated, sendNoContent, sendPaginated } from '../utils/response';
 import { getPaginationParams } from '../utils/pagination';
 
-const getPages = (query: Record<string, unknown>) =>
-  getPaginationParams(query.page as string, query.limit as string);
+const getPages = (query: Record<string, unknown>) => getPaginationParams(query.page as string, query.limit as string);
 
 export const donationController = {
   // Authenticated or guest donate → returns { donation, checkoutUrl }

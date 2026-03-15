@@ -46,6 +46,10 @@ export class WithdrawService {
 
     if (!bankAccount) throw new NotFoundError('Bank account not found');
 
+    if (bankAccount.isBankInfoApproved === false) {
+      throw new BadRequestError('Bank information is currently pending admin approval');
+    }
+
     const request = WithdrawRepository.create({
       campaignId: dto.campaignId,
       requesterId: creatorId,

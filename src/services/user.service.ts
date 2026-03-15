@@ -1,9 +1,10 @@
-import { UserRepository, BankAccountRepository } from '../repositories/user.repository';
+import { UserRepository, BankAccountRepository, BankAccountChangeRequestRepository } from '../repositories/user.repository';
 import { NotFoundError, ConflictError, BadRequestError } from '../utils/errors';
 import { UpdateUserProfileDto } from '../validators/user.validator';
-import { AddBankAccountDto, VerifyKycDto } from '../validators/user.validator';
+import { AddBankAccountDto, VerifyKycDto, RequestBankInfoChangeDto } from '../validators/user.validator';
 import { storageService } from './storage.service';
 import { performKyc } from './vnptEkyc.service';
+import { emailQueue } from '../queues/email.queue';
 
 export class UserService {
   async getActiveUserCount() {
@@ -128,6 +129,81 @@ export class UserService {
       fullName: kycResult.fullName,
       idNumber: kycResult.idNumber,
       faceMatchScore: kycResult.faceMatchScore,
+    };
+  }
+
+  // ── Bank info change request ──────────────────────────────────────────────
+
+  async requestBankInfoChange(userId: string, dto: RequestBankInfoChangeDto) {
+    const bankAccount = await BankAccountRepository.findOne({
+      where: { id: dto.bankAccountId, userId },
+    });
+    if (!bankAccount) throw new NotFoundError('Bank account not found');
+
+    // Check if there's already a pending change request
+    const existingPending = await BankAccountChangeRequestRepository.findPendingByBankAccountId(
+      dto.bankAccountId,
+    );
+    if (existingPending) {
+      throw new ConflictError('A pending bank info change request already exists for this account');
+    }
+
+    // Create the change request
+    const changeRequest = BankAccountChangeRequestRepository.create({
+      bankAccountId: dto.bankAccountId,
+      requesterId: userId,
+      newBankName: dto.bankName,
+      newAccountNumber: dto.accountNumber,
+      newAccountHolderName: dto.accountHolderName,
+    });
+    await BankAccountChangeRequestRepository.save(changeRequest);
+
+    // Mark bank account as not approved until admin reviews
+    await BankAccountRepository.update(dto.bankAccountId, { isBankInfoApproved: false });
+
+    // Get user info for email
+    const user = await UserRepository.findOne({ where: { id: userId } });
+
+    // Notify admin via email queue
+    await emailQueue.add('sendBankChangeRequestNotification', {
+      requesterName: user?.fullName || 'Unknown',
+      requesterEmail: user?.email || '',
+      currentBankName: bankAccount.bankName,
+      currentAccountNumber: bankAccount.accountNumber,
+      currentAccountHolderName: bankAccount.accountHolderName,
+      newBankName: dto.bankName,
+      newAccountNumber: dto.accountNumber,
+      newAccountHolderName: dto.accountHolderName,
+      changeRequestId: changeRequest.id,
+    });
+
+    return changeRequest;
+  }
+
+  async getBankChangeRequestStatus(userId: string, bankAccountId: string) {
+    const bankAccount = await BankAccountRepository.findOne({
+      where: { id: bankAccountId, userId },
+    });
+    if (!bankAccount) throw new NotFoundError('Bank account not found');
+
+    const latestRequest = await BankAccountChangeRequestRepository.findLatestByBankAccountId(
+      bankAccountId,
+    );
+
+    return {
+      isBankInfoApproved: bankAccount.isBankInfoApproved,
+      latestRequest: latestRequest
+        ? {
+            id: latestRequest.id,
+            status: latestRequest.status,
+            newBankName: latestRequest.newBankName,
+            newAccountNumber: latestRequest.newAccountNumber,
+            newAccountHolderName: latestRequest.newAccountHolderName,
+            rejectReason: latestRequest.rejectReason,
+            createdAt: latestRequest.createdAt,
+            processedAt: latestRequest.processedAt,
+          }
+        : null,
     };
   }
 }

@@ -18,6 +18,8 @@ export enum AuditAction {
   WITHDRAW_REJECTED = 'withdraw_rejected',
   USER_SUSPENDED = 'user_suspended',
   REPORT_RESOLVED = 'report_resolved',
+  BANK_CHANGE_APPROVED = 'bank_change_approved',
+  BANK_CHANGE_REJECTED = 'bank_change_rejected',
 }
 
 @Entity('audit_logs')

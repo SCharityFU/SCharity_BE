@@ -112,6 +112,27 @@ export const userController = {
     }
   },
 
+  async requestBankInfoChange(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await userService.requestBankInfoChange(req.user!.id, req.body);
+      sendCreated(res, result, 'Bank info change request submitted');
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async getBankChangeRequestStatus(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await userService.getBankChangeRequestStatus(
+        req.user!.id,
+        req.params.bankAccountId,
+      );
+      sendSuccess(res, result);
+    } catch (err) {
+      next(err);
+    }
+  },
+
   async uploadAsset(req: Request, res: Response, next: NextFunction) {
     try {
       const file = req.file;

@@ -28,6 +28,9 @@ export class BankAccount {
   @Column({ default: false })
   isDefault: boolean;
 
+  @Column({ default: true })
+  isBankInfoApproved: boolean;
+
   @Column()
   userId: string;
 

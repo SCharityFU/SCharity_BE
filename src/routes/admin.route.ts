@@ -330,7 +330,19 @@ router.get('/campaigns/:id', adminController.getCampaignDetails);
  *           minimum: 1
  *           maximum: 365
  *           default: 30
- *         description: Number of past days included in chart aggregation
+ *         description: Number of past days included in chart aggregation (used when startDate/endDate are not provided)
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: Optional range start (inclusive). Must be sent with endDate.
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: Optional range end (inclusive). Must be sent with startDate.
  *     responses:
  *       200:
  *         description: Campaign analytics chart payload

@@ -140,6 +140,9 @@ export interface AdminCampaignDonationResponseDto {
   bankAccount: string | null;
   /** Processing status of the donation */
   status: DonationStatus;
+
+  campaignId: string;
+  campaignName: string;
 }
 
 // Admin-specific list/detail responses reuse these DTOs:

@@ -142,6 +142,8 @@ export function toCampaignDonationAdminDto(
       ? maskAccountNumber(donation.bankAccount)
       : null,
     status: donation.status,
+    campaignId: donation.campaignId,
+    campaignName: donation.campaign ? donation.campaign.title : 'Unknown campaign',
   };
 }
 

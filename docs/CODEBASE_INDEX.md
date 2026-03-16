@@ -77,6 +77,7 @@ Mounted in `src/routes/index.ts` under `/api/v1`:
 | `/auth`        | `src/routes/auth.route.ts`     |
 | `/admin`       | `src/routes/admin.route.ts`    |
 | `/campaigns`   | `src/routes/campaign.route.ts` |
+| `/creator`     | `src/routes/creator.route.ts`  |
 | `/donations`   | `src/routes/donation.route.ts` |
 | `/users`       | `src/routes/user.route.ts`     |
 | `/withdrawals` | `src/routes/withdraw.route.ts` |
@@ -125,6 +126,12 @@ Mounted in `src/routes/index.ts` under `/api/v1`:
 | GET    | `/campaigns/:id/analytics`                   | jwt  | Get donation analytics for campaign (owner only)                                         |
 | GET    | `/campaigns/:id/creator-analytics`           | jwt  | Owner analytics (admin-like chart payload with optional daily top donors)                |
 | POST   | `/campaigns/:id/updates`                     | jwt  | Post progress update (owner; multipart media files)                                      |
+
+### Creator (`/creator`)
+
+| Method | Path                 | Auth | Description                                                                                             |
+| ------ | -------------------- | ---- | ------------------------------------------------------------------------------------------------------- |
+| GET    | `/creator/dashboard` | jwt  | Aggregate creator dashboard payload (supports cursor load-more via `campaignCursor` + `donationCursor`) |
 
 ### Donations (`/donations`)
 
@@ -186,6 +193,7 @@ Mounted in `src/routes/index.ts` under `/api/v1`:
 | ------------------------ | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `auth.controller.ts`     | `authController`     | `register`, `login`, `googleLogin`, `googleCallback`, `refreshToken`, `logout`, `forgotPassword`, `resetPassword`, `verifyEmail`, `me`, `changePassword`                                                                                                                                                                                                                                    |
 | `campaign.controller.ts` | `campaignController` | `listCampaigns`, `getCampaign`, `submitRequest`, `getMyRequests`, `getMyCampaigns`, `updateCampaign`, `closeCampaign`, `getCampaignAnalytics`, `getCreatorCampaignAnalytics`, `getCampaignUpdates`, `createCampaignUpdate`                                                                                                                                                                  |
+| `creator.controller.ts`  | `creatorController`  | `getDashboard`                                                                                                                                                                                                                                                                                                                                                                              |
 | `donation.controller.ts` | `donationController` | `donate`, `getMyDonations`, `getDonation`, `getCampaignDonations`, `createComment`, `getComments`, `deleteComment`                                                                                                                                                                                                                                                                          |
 | `user.controller.ts`     | `userController`     | `getActiveUserCount`, `getProfile`, `updateProfile`, `getBankAccounts`, `addBankAccount`, `deleteBankAccount`, `setDefaultBankAccount`, `reportCampaign`                                                                                                                                                                                                                                    |
 | `withdraw.controller.ts` | `withdrawController` | `createRequest`, `getMyRequests`, `getRequestById`                                                                                                                                                                                                                                                                                                                                          |
@@ -231,6 +239,14 @@ Mounted in `src/routes/index.ts` under `/api/v1`:
 | `createCampaignUpdate(campaignId, creatorId, dto, mediaUrls?)`                | Allowed statuses: `ACTIVE`, `CLOSED`, `WITHDRAWN`; notifies donors via queue if not draft             |
 | `reportCampaign(campaignId, reporterId, reason, description?, evidenceUrls?)` | Duplicate-report guard, increment `reportCount`                                                       |
 | `getMyCampaigns(creatorId, page, limit)`                                      | Paginated campaigns owned by creator                                                                  |
+
+---
+
+### `CreatorService` (`creator.service.ts`) — `creatorService`
+
+| Method                        | Description                                                                                                                              |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `getDashboard(userId, query)` | Aggregate creator dashboard payload for UI blocks with independent cursor pagination metadata for recent donations and campaigns preview |
 
 ---
 
@@ -732,6 +748,7 @@ Organised by domain. Each domain has `request.dto.ts`, `response.dto.ts`, `index
 | `user/`     | `BankAccountResponseDto`, `ReportBriefDto`, `ReportResponseDto`                                                                                                                                                                                                                                                                    |
 | `withdraw/` | `WithdrawRequestResponseDto`                                                                                                                                                                                                                                                                                                       |
 | `admin/`    | `DashboardStatsResponseDto`, `DonationChartDataPointDto`, `AdminCampaignListItemDto`, `AdminCampaignDetailDto`, `AdminCampaignAnalyticsResponseDto`, `AdminCampaignDonationResponseDto`                                                                                                                                            |
+| `creator/`  | `CreatorDashboardQueryDto`, `CreatorDashboardResponseDto`                                                                                                                                                                                                                                                                          |
 | `common/`   | `PaginationQueryDto`, `ApiResponseDto`, `PaginatedResponseDto`, `PaginationMetaDto`, `MessageOnlyResponseDto`                                                                                                                                                                                                                      |
 
 See `src/dtos/DTO_USECASE_MAPPING.md` for the full DTO ↔ SRS use-case mapping table and business-rule enforcement details.

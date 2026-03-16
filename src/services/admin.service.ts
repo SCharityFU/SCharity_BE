@@ -34,6 +34,24 @@ const toDateKey = (value: string | Date): string => {
   return getVietnamDateString(value);
 };
 
+const buildDateKeysInRange = (startDate: string, endDate: string): string[] => {
+  const startKey = getVietnamDateString(startDate);
+  const endKey = getVietnamDateString(endDate);
+
+  const start = new Date(`${startKey}T00:00:00.000Z`);
+  const end = new Date(`${endKey}T00:00:00.000Z`);
+
+  const dateKeys: string[] = [];
+  for (let cursor = new Date(start); cursor <= end; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
+    const year = cursor.getUTCFullYear();
+    const month = String(cursor.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(cursor.getUTCDate()).padStart(2, '0');
+    dateKeys.push(`${year}-${month}-${day}`);
+  }
+
+  return dateKeys;
+};
+
 const buildDailyChartSeries = (
   dateKeys: string[],
   rawPoints: Array<{ date: string; amount: number; count: number }>,
@@ -267,21 +285,33 @@ export class AdminService {
     return toAdminCampaignDetailDto(campaign);
   }
 
-  async getCampaignAnalytics(id: string, days = 30) {
+  async getCampaignAnalytics(id: string, days = 30, startDate?: string, endDate?: string) {
     const campaign = await CampaignRepository.findOne({
       where: { id },
     });
     if (!campaign) throw new NotFoundError('Campaign not found');
 
-    const { startUtc, endUtc, dateKeys } = getVietnamRecentDaysRange(days);
+    const hasDateRange = Boolean(startDate && endDate);
+    const fallbackRange = hasDateRange ? null : getVietnamRecentDaysRange(days);
+
+    const startUtc = hasDateRange
+      ? getVietnamDayRangeUtc(startDate!).startUtc
+      : fallbackRange!.startUtc;
+    const endUtc = hasDateRange
+      ? getVietnamDayRangeUtc(endDate!).endUtc
+      : fallbackRange!.endUtc;
+    const dateKeys = hasDateRange
+      ? buildDateKeysInRange(startDate!, endDate!)
+      : fallbackRange!.dateKeys;
+    const effectiveDays = hasDateRange ? dateKeys.length : days;
 
     const [rawChartData, rawDonorBreakdowns] = await Promise.all([
-      DonationRepository.getDonationChartData(id, days, startUtc, endUtc),
-      DonationRepository.getCampaignDailyDonorBreakdown(id, days, startUtc, endUtc),
+      DonationRepository.getDonationChartData(id, effectiveDays, startUtc, endUtc),
+      DonationRepository.getCampaignDailyDonorBreakdown(id, effectiveDays, startUtc, endUtc),
     ]);
     const chartData = buildDailyChartSeries(dateKeys, rawChartData, rawDonorBreakdowns);
 
-    return toAdminCampaignAnalyticsDto(id, days, chartData);
+    return toAdminCampaignAnalyticsDto(id, effectiveDays, chartData);
   }
 
   async suspendCampaign(id: string, adminId: string, reason: string) {

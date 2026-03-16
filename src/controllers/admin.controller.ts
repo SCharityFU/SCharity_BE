@@ -91,7 +91,9 @@ export const adminController = {
   async getCampaignAnalytics(req: Request, res: Response, next: NextFunction) {
     try {
       const days = Number(req.query.days) || 30;
-      const data = await adminService.getCampaignAnalytics(req.params.id, days);
+      const startDate = req.query.startDate as string | undefined;
+      const endDate = req.query.endDate as string | undefined;
+      const data = await adminService.getCampaignAnalytics(req.params.id, days, startDate, endDate);
       sendSuccess(res, data, 'Campaign analytics fetched successfully');
     } catch (err) {
       next(err);

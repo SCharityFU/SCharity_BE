@@ -182,6 +182,52 @@ export const DonationRepository = AppDataSource.getRepository(Donation).extend({
       .orderBy(`DATE_TRUNC('${interval}', donation.createdAt)`, 'ASC')
       .getRawMany();
   },
+
+  async findRecentByCreatorCampaigns(
+    creatorId: string,
+    limit: number,
+  ): Promise<Donation[]> {
+    return this.createQueryBuilder('donation')
+      .leftJoinAndSelect('donation.campaign', 'campaign')
+      .leftJoinAndSelect('donation.donor', 'donor')
+      .where('campaign.creatorId = :creatorId', { creatorId })
+      .andWhere('donation.status = :status', { status: DonationStatus.SUCCESS })
+      .orderBy('donation.createdAt', 'DESC')
+      .take(limit)
+      .getMany();
+  },
+
+  async findRecentByCreatorCampaignsWithCursor(
+    creatorId: string,
+    limit: number,
+    cursor?: { createdAt: Date; id: string },
+  ): Promise<{ items: Donation[]; hasMore: boolean }> {
+    const query = this.createQueryBuilder('donation')
+      .leftJoinAndSelect('donation.campaign', 'campaign')
+      .leftJoinAndSelect('donation.donor', 'donor')
+      .where('campaign.creatorId = :creatorId', { creatorId })
+      .andWhere('donation.status = :status', { status: DonationStatus.SUCCESS })
+      .orderBy('donation.createdAt', 'DESC')
+      .addOrderBy('donation.id', 'DESC')
+      .take(limit + 1);
+
+    if (cursor) {
+      query.andWhere(
+        '(donation.createdAt < :cursorCreatedAt OR (donation.createdAt = :cursorCreatedAt AND donation.id < :cursorId))',
+        {
+          cursorCreatedAt: cursor.createdAt,
+          cursorId: cursor.id,
+        },
+      );
+    }
+
+    const rows = await query.getMany();
+    const hasMore = rows.length > limit;
+    return {
+      items: hasMore ? rows.slice(0, limit) : rows,
+      hasMore,
+    };
+  },
 });
 
 export const CommentRepository = AppDataSource.getRepository(Comment).extend({

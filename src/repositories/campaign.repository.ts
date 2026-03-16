@@ -83,6 +83,79 @@ export const CampaignRepository = AppDataSource.getRepository(Campaign).extend({
       .where('id = :id', { id: campaignId })
       .execute();
   },
+
+  async getCreatorSummaryStats(
+    creatorId: string,
+  ): Promise<{
+    totalRaisedAmount: number;
+    totalCampaignCount: number;
+    activeCampaignCount: number;
+    totalDonorCount: number;
+    overdueCampaignCount: number;
+  }> {
+    const raw = await this.createQueryBuilder('campaign')
+      .select('COALESCE(SUM(campaign.raisedAmount), 0)', 'totalRaisedAmount')
+      .addSelect('COUNT(*)', 'totalCampaignCount')
+      .addSelect(
+        `COUNT(*) FILTER (WHERE campaign.status = '${CampaignStatus.ACTIVE}')`,
+        'activeCampaignCount',
+      )
+      .addSelect('COALESCE(SUM(campaign.donorCount), 0)', 'totalDonorCount')
+      .addSelect(
+        `COUNT(*) FILTER (WHERE campaign.status = '${CampaignStatus.ACTIVE}' AND campaign.deadline < NOW())`,
+        'overdueCampaignCount',
+      )
+      .where('campaign.creatorId = :creatorId', { creatorId })
+      .getRawOne();
+
+    return {
+      totalRaisedAmount: Number(raw?.totalRaisedAmount ?? 0),
+      totalCampaignCount: Number(raw?.totalCampaignCount ?? 0),
+      activeCampaignCount: Number(raw?.activeCampaignCount ?? 0),
+      totalDonorCount: Number(raw?.totalDonorCount ?? 0),
+      overdueCampaignCount: Number(raw?.overdueCampaignCount ?? 0),
+    };
+  },
+
+  async findCreatorPreview(
+    creatorId: string,
+    limit: number,
+  ): Promise<Campaign[]> {
+    return this.createQueryBuilder('campaign')
+      .where('campaign.creatorId = :creatorId', { creatorId })
+      .orderBy('campaign.createdAt', 'DESC')
+      .take(limit)
+      .getMany();
+  },
+
+  async findCreatorPreviewWithCursor(
+    creatorId: string,
+    limit: number,
+    cursor?: { createdAt: Date; id: string },
+  ): Promise<{ items: Campaign[]; hasMore: boolean }> {
+    const query = this.createQueryBuilder('campaign')
+      .where('campaign.creatorId = :creatorId', { creatorId })
+      .orderBy('campaign.createdAt', 'DESC')
+      .addOrderBy('campaign.id', 'DESC')
+      .take(limit + 1);
+
+    if (cursor) {
+      query.andWhere(
+        '(campaign.createdAt < :cursorCreatedAt OR (campaign.createdAt = :cursorCreatedAt AND campaign.id < :cursorId))',
+        {
+          cursorCreatedAt: cursor.createdAt,
+          cursorId: cursor.id,
+        },
+      );
+    }
+
+    const rows = await query.getMany();
+    const hasMore = rows.length > limit;
+    return {
+      items: hasMore ? rows.slice(0, limit) : rows,
+      hasMore,
+    };
+  },
 });
 
 export const CampaignRequestRepository = AppDataSource.getRepository(CampaignRequest).extend({
@@ -103,6 +176,33 @@ export const CampaignRequestRepository = AppDataSource.getRepository(CampaignReq
     }
 
     return query.getManyAndCount();
+  },
+
+  async getCreatorRequestStats(
+    requesterId: string,
+  ): Promise<{
+    total: number;
+    pending: number;
+    rejected: number;
+  }> {
+    const raw = await this.createQueryBuilder('request')
+      .select('COUNT(*)', 'total')
+      .addSelect(
+        `COUNT(*) FILTER (WHERE request.status = '${CampaignRequestStatus.PENDING}')`,
+        'pending',
+      )
+      .addSelect(
+        `COUNT(*) FILTER (WHERE request.status = '${CampaignRequestStatus.REJECTED}')`,
+        'rejected',
+      )
+      .where('request.requesterId = :requesterId', { requesterId })
+      .getRawOne();
+
+    return {
+      total: Number(raw?.total ?? 0),
+      pending: Number(raw?.pending ?? 0),
+      rejected: Number(raw?.rejected ?? 0),
+    };
   },
 });
 

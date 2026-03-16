@@ -9,7 +9,39 @@ export const adminCampaignAnalyticsQuerySchema = z.object({
       const parsed = parseInt(v || '30', 10);
       return Number.isNaN(parsed) ? 30 : Math.min(365, Math.max(1, parsed));
     }),
-});
+  startDate: z
+    .string()
+    .optional()
+    .refine((v) => !v || !Number.isNaN(Date.parse(v)), {
+      message: 'startDate must be a valid date or datetime string',
+    }),
+  endDate: z
+    .string()
+    .optional()
+    .refine((v) => !v || !Number.isNaN(Date.parse(v)), {
+      message: 'endDate must be a valid date or datetime string',
+    }),
+})
+  .refine(
+    (data) => {
+      if (!data.startDate && !data.endDate) return true;
+      return Boolean(data.startDate && data.endDate);
+    },
+    {
+      message: 'startDate and endDate must be provided together',
+      path: ['startDate'],
+    },
+  )
+  .refine(
+    (data) => {
+      if (!data.startDate || !data.endDate) return true;
+      return new Date(data.startDate) <= new Date(data.endDate);
+    },
+    {
+      message: 'startDate must be before or equal to endDate',
+      path: ['startDate'],
+    },
+  );
 
 export const adminCampaignRequestsQuerySchema = z.object({
   page: z

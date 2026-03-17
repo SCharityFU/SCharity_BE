@@ -14,6 +14,7 @@ export enum AuditAction {
   CAMPAIGN_REJECTED = 'campaign_rejected',
   CAMPAIGN_SUSPENDED = 'campaign_suspended',
   CAMPAIGN_UNSUSPENDED = 'campaign_unsuspended',
+  CAMPAIGN_AUTO_COMPLETED = 'campaign_auto_completed',
   WITHDRAW_APPROVED = 'withdraw_approved',
   WITHDRAW_REJECTED = 'withdraw_rejected',
   USER_SUSPENDED = 'user_suspended',

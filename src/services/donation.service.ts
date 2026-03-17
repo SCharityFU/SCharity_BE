@@ -6,6 +6,7 @@ import { NotFoundError, BadRequestError, ForbiddenError } from '../utils/errors'
 import { CreateDonationDto, CreateCommentDto } from '../validators/donation.validator';
 import { emailQueue } from '../queues/email.queue';
 import { payos } from '../utils/payos';
+import { toCampaignDonationAdminDto } from '../utils/dto-mapper';
 
 export class DonationService {
   /**
@@ -218,13 +219,52 @@ export class DonationService {
     campaignId: string,
     page: number,
     limit: number,
+    requesterId: string,
     search?: string,
     sortBy?: string,
     sortOrder?: 'ASC' | 'DESC',
   ) {
     const campaign = await CampaignRepository.findOne({ where: { id: campaignId } });
     if (!campaign) throw new NotFoundError('Campaign not found');
-    return DonationRepository.findByCampaignId(campaignId, page, limit, search, sortBy, sortOrder);
+
+    if (campaign.creatorId !== requesterId) {
+      throw new ForbiddenError('You are not the creator of this campaign');
+    }
+
+    const [donations, total] = await DonationRepository.findByCampaignId(
+      campaignId,
+      page,
+      limit,
+      search,
+      sortBy,
+      sortOrder,
+    );
+
+    // Keep creator analytics donor list safe by masking personal/payment fields.
+    const safeDonations = donations.map((donation) => {
+      const donationDto = toCampaignDonationAdminDto(donation);
+      return {
+        id: donationDto.id,
+        amount: donationDto.amount,
+        status: donationDto.status,
+        paymentMethod: null,
+        transactionRef: null,
+        message: donationDto.message,
+        isAnonymous: donation.isAnonymous,
+        donorDisplayName: donationDto.donorDisplayName,
+        bankName: null,
+        bankAccount: null,
+        campaignId,
+        campaign: undefined,
+        donorId: donation.isAnonymous ? null : donation.donorId,
+        donor: undefined,
+        paymentMetadata: null,
+        createdAt: donation.createdAt,
+        updatedAt: donation.updatedAt,
+      };
+    });
+
+    return [safeDonations, total] as const;
   }
 }
 

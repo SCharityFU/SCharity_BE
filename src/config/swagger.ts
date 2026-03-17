@@ -24,7 +24,7 @@ const options: swaggerJsdoc.Options = {
         description: 'Development Server',
       },
       {
-        url: `https://scharity-backend.onrender.com/api/v1`,
+        url: `https://scharity-be.onrender.com/api/v1`,
         description: 'Staging Server',
       },
       {

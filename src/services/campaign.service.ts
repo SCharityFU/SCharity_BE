@@ -21,6 +21,7 @@ import { emailQueue } from '../queues/email.queue';
 import redisClient from '../config/redis';
 import { UserRepository } from '../repositories/user.repository';
 import { CreatorCampaignAnalyticsResponseDto } from '../dtos/campaign/response.dto';
+import { MAXIMUM_CAMPAIGN_REQUESTS_DEADLINE_DAYS } from '../entities/CampaignRequest';
 
 const CAMPAIGN_CACHE_TTL = 300; // 5 minutes
 const TOP_DONORS_PER_DAY = 5;
@@ -117,6 +118,14 @@ export class CampaignService {
     const creator = await UserRepository.findOne({ where: { id: creatorId } });
     if (!creator?.isKycVerified) {
       throw new ForbiddenError('You must complete KYC verification before creating a campaign');
+    }
+
+    // Check if the deadline is too long
+    const now = new Date();
+    const maxDeadline = new Date(now.getTime() + MAXIMUM_CAMPAIGN_REQUESTS_DEADLINE_DAYS * 24 * 60 * 60 * 1000);
+
+    if (new Date(dto.deadline) > maxDeadline) {
+      throw new ForbiddenError(`Deadline cannot be more than ${MAXIMUM_CAMPAIGN_REQUESTS_DEADLINE_DAYS} days in the future`);
     }
 
     const request = CampaignRequestRepository.create({

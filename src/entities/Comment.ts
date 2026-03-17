@@ -35,12 +35,12 @@ export class Comment {
   @JoinColumn({ name: 'campaignId' })
   campaign: Campaign;
 
-  @Column()
-  donorId: string;
+  @Column({ nullable: true })
+  donorId: string | null;
 
-  @ManyToOne(() => User)
+  @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'donorId' })
-  donor: User;
+  donor: User | null;
 
   @Column({ nullable: true })
   donationId: string;

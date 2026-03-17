@@ -80,6 +80,45 @@ router.get('/mine', withdrawController.getMyRequests);
 
 /**
  * @swagger
+ * /withdrawals/campaign/{campaignId}:
+ *   get:
+ *     summary: List withdrawal requests for a specific campaign
+ *     description: |
+ *       Returns withdrawal requests ordered by latest first.
+ *       Accessible by campaign owner or admin.
+ *     tags: [Withdrawals]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: campaignId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Withdrawal requests fetched
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/WithdrawRequest'
+ *       403:
+ *         description: Not campaign owner and not admin
+ *       404:
+ *         description: Campaign not found
+ */
+router.get('/campaign/:campaignId', withdrawController.getRequestsByCampaignId);
+
+/**
+ * @swagger
  * /withdrawals/{id}:
  *   get:
  *     summary: Get a withdrawal request by ID

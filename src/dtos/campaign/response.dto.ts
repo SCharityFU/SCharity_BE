@@ -1,12 +1,17 @@
 // ── Campaign Response DTOs ───────────────────────────────────────────────────
 
 import { CampaignStatus, CampaignCategory } from '../../entities/Campaign';
-import { DonationStatus, PaymentMethod } from '../../entities/Donation';
 import { CampaignRequestStatus } from '../../entities/CampaignRequest';
 import { UpdateCategory } from '../../entities/CampaignUpdate';
 import { DonationChartDataPointDto } from '../admin';
 import { UserPublicDto } from '../auth/response.dto';
 import type { DonationResponseDto } from '../donation/response.dto';
+
+export interface PublicUserBasicDto {
+  id: string;
+  fullName: string;
+  avatarUrl: string | null;
+}
 
 export interface CampaignDto {
   id: string;
@@ -54,7 +59,7 @@ export interface PublicCampaignDto {
   approvedAt: Date | null;
   donorCount: number;
   creatorId: string;
-  creator?: UserPublicDto;
+  creator: PublicUserBasicDto | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -97,7 +102,7 @@ export interface CampaignUpdateResponseDto {
   isDraft: boolean;
   campaignId: string;
   creatorId: string;
-  creator?: UserPublicDto;
+  creator: PublicUserBasicDto | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -105,20 +110,10 @@ export interface CampaignUpdateResponseDto {
 export interface CampaignDonationPublicDto {
   id: string;
   amount: number;
-  status: DonationStatus;
-  paymentMethod: PaymentMethod | null;
-  transactionRef: string | null;
   message: string | null;
-  isAnonymous: boolean;
   donorDisplayName: string;
-  bankName: string | null;
-  bankAccount: string | null;
-  campaignId: string;
-  donorId: string | null;
-  donor?: UserPublicDto;
-  paymentMetadata: Record<string, unknown> | null;
+  donor: PublicUserBasicDto | null;
   createdAt: Date;
-  updatedAt: Date;
 }
 
 export interface CampaignCommentPublicDto {
@@ -126,20 +121,8 @@ export interface CampaignCommentPublicDto {
   content: string;
   emoji: string | null;
   isAnonymous: boolean;
-  campaignId: string;
-  donorId: string;
-  donor?: UserPublicDto;
-  donationId: string | null;
-  donation?: {
-    id: string;
-    amount: number;
-    status: DonationStatus;
-    createdAt: Date;
-  };
-  isEdited: boolean;
-  editedAt: Date | null;
+  donor: PublicUserBasicDto | null;
   createdAt: Date;
-  updatedAt: Date;
 }
 
 export interface PublicCampaignDetailResponseDto extends PublicCampaignDto {

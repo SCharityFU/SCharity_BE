@@ -13,7 +13,6 @@ import { Campaign } from './Campaign';
 
 export enum WithdrawStatus {
   PENDING = 'pending',
-  APPROVED = 'approved',
   REJECTED = 'rejected',
   COMPLETED = 'completed',
 }

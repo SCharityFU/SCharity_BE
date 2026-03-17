@@ -14,6 +14,7 @@ import './config/passport';
 import routes from './routes';
 import { errorHandler, notFoundHandler } from './middlewares/error.middleware';
 import { globalRateLimiter } from './middlewares/rateLimiter.middleware';
+import { initCampaignStatusCron } from './jobs/campaign-status.cron';
 
 const app = express();
 
@@ -60,6 +61,8 @@ async function bootstrap() {
   try {
     await AppDataSource.initialize();
     console.log('[Database] Connected successfully');
+
+    initCampaignStatusCron();
 
     const PORT = Number(process.env.PORT) || 3000;
     app.listen(PORT, () => {

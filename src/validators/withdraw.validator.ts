@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const createWithdrawRequestSchema = z.object({
   campaignId: z.string().uuid('Invalid campaign ID'),
-  amount: z.number().positive('Amount must be positive'),
+  // amount: z.number().positive('Amount must be positive'),
   bankAccountId: z.string().uuid('Invalid bank account ID'),
 });
 

@@ -62,11 +62,12 @@ export class DonationService {
         checkoutUrl: paymentLink.checkoutUrl,
         orderCode,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Mark donation FAILED if PayOS rejects it
       donation.status = DonationStatus.FAILED;
       await DonationRepository.save(donation);
-      throw new BadRequestError(`PayOS Error: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown PayOS error';
+      throw new BadRequestError(`PayOS Error: ${errorMessage}`);
     }
   }
 

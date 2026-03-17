@@ -33,6 +33,13 @@ export const WithdrawRepository = AppDataSource.getRepository(WithdrawRequest).e
     });
   },
 
+  async findAllByCampaignId(campaignId: string): Promise<WithdrawRequest[]> {
+    return this.find({
+      where: { campaignId },
+      order: { createdAt: 'DESC' },
+    });
+  },
+
   async getTotalPaidAmount(campaignId?: string): Promise<number> {
     const query = this.createQueryBuilder('wr')
       .select('SUM(wr.amount)', 'total')

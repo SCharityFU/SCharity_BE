@@ -33,4 +33,17 @@ export const withdrawController = {
       next(err);
     }
   },
+
+  async getRequestsByCampaignId(req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = await withdrawService.getRequestsByCampaignId(
+        req.params.campaignId,
+        req.user!.id,
+        req.user!.role,
+      );
+      sendSuccess(res, data, 'Withdrawal requests fetched');
+    } catch (err) {
+      next(err);
+    }
+  },
 };

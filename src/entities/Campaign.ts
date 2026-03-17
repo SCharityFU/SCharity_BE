@@ -16,8 +16,9 @@ import { WithdrawRequest } from './WithdrawRequest';
 import { Report } from './Report';
 import { CampaignUpdate } from './CampaignUpdate';
 
+// No pending because it is only pending when the campaign creator submit the campaign request, after admin approve it, the campaign is active immediately
 export enum CampaignStatus {
-  PENDING = 'pending',
+  REJECTED = 'rejected',
   ACTIVE = 'active',
   CLOSED = 'closed',
   SUSPENDED = 'suspended',
@@ -34,6 +35,11 @@ export enum CampaignCategory {
   ENVIRONMENT = 'environment',
   OTHER = 'other',
 }
+
+/**
+ * Max is 3
+ */
+export const MAXIMUM_WITHDRAWAL_REQUESTS_AMOUNT = 3;
 
 @Entity('campaigns')
 @Index(['status'])
@@ -61,7 +67,7 @@ export class Campaign {
   @Column({ type: 'timestamp' })
   deadline: Date;
 
-  @Column({ type: 'enum', enum: CampaignStatus, default: CampaignStatus.PENDING })
+  @Column({ type: 'enum', enum: CampaignStatus, default: CampaignStatus.ACTIVE })
   status: CampaignStatus;
 
   @Column({ type: 'enum', enum: CampaignCategory, default: CampaignCategory.OTHER })

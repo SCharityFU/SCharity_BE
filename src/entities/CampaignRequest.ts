@@ -17,6 +17,8 @@ export enum CampaignRequestStatus {
   REJECTED = 'rejected',
 }
 
+export const MAXIMUM_CAMPAIGN_REQUESTS_DEADLINE_DAYS = 90;
+
 @Entity('campaign_requests')
 @Index(['status'])
 @Index(['requesterId'])

@@ -11,9 +11,9 @@ import {
   toCampaignDonationAdminDto,
   toAdminCampaignListItemDto,
 } from '../utils/dto-mapper';
-import { Campaign, CampaignStatus } from '../entities/Campaign';
+import { Campaign, CampaignStatus, MAXIMUM_WITHDRAWAL_REQUESTS_AMOUNT } from '../entities/Campaign';
 import { CampaignRequestStatus } from '../entities/CampaignRequest';
-import { WithdrawStatus } from '../entities/WithdrawRequest';
+import { WithdrawRequest, WithdrawStatus } from '../entities/WithdrawRequest';
 import { BankChangeStatus } from '../entities/BankAccountChangeRequest';
 import { ReportStatus } from '../entities/Report';
 import { AuditLog, AuditAction } from '../entities/AuditLog';
@@ -25,6 +25,8 @@ import { getVietnamDateString, getVietnamDayRangeUtc, getVietnamRecentDaysRange 
 
 import { UserRole } from '../entities/User';
 import { Donation } from '../entities/Donation';
+import { Not } from 'typeorm';
+
 
 const TOP_DONORS_PER_DAY = 5;
 
@@ -136,6 +138,7 @@ const buildDailyChartSeries = (
 };
 
 export class AdminService {
+
   async getDashboardStats(): Promise<DashboardStats> {
     const [campaignStats, donationStats, paidStats, totalUsers, totalCampaignCreators, totalDonors] = await Promise.all(
       [
@@ -409,60 +412,145 @@ export class AdminService {
     return WithdrawRepository.findWithPagination(page, limit, status ? { status } : undefined);
   }
 
-  async processWithdrawRequest(id: string, adminId: string, action: 'approve' | 'reject', rejectReason?: string) {
-    const request = await WithdrawRepository.findOne({
-      where: { id },
-      relations: ['campaign', 'requester'],
+  async approveWithdrawRequest(id: string, adminId: string) {
+    return this.processWithdrawRequest(id, adminId, 'approve');
+  }
+
+  async processWithdrawRequest(
+    id: string,
+    adminId: string,
+    action: 'approve' | 'reject',
+    rejectReason?: string
+  ) {
+    const result = await AppDataSource.transaction(async (manager) => {
+      const withdrawRepo = manager.getRepository(WithdrawRequest);
+      const campaignRepo = manager.getRepository(Campaign);
+      const auditRepo = manager.getRepository(AuditLog);
+
+      const request = await withdrawRepo.findOne({
+        where: { id },
+        relations: ['campaign', 'requester'],
+      });
+
+      if (!request) {
+        throw new NotFoundError('Không tìm thấy yêu cầu rút tiền');
+      }
+
+      switch (request.status) {
+        case WithdrawStatus.REJECTED:
+          throw new ConflictError('Yêu cầu rút tiền đã bị từ chối từ trước');
+        case WithdrawStatus.COMPLETED:
+          throw new ConflictError('Yêu cầu rút tiền đã được xử lý từ trước');
+      }
+
+      const campaign = request.campaign;
+
+      await this.ensureNoPendingWithdrawals(campaign.id, id);
+
+      const existingSuccessfulWithdraws = await withdrawRepo.count({
+        where: {
+          campaignId: request.campaignId,
+          status: WithdrawStatus.COMPLETED,
+        },
+      });
+
+      const totalWithdrawsAfterApproval = existingSuccessfulWithdraws + 1;
+      const isFinalWithdrawAttempt =
+        totalWithdrawsAfterApproval >= MAXIMUM_WITHDRAWAL_REQUESTS_AMOUNT;
+
+      if (action === 'approve') {
+        const withdrawAmount = request.amount;
+
+        const availableAmount =
+          Number(campaign.raisedAmount ?? 0) -
+          Number(campaign.withdrawnAmount ?? 0);
+
+        if (withdrawAmount > availableAmount) {
+          throw new BadRequestError(
+            'Số tiền rút vượt quá số dư còn lại của chiến dịch'
+          );
+        }
+
+        campaign.withdrawnAmount += withdrawAmount;
+
+        request.status = WithdrawStatus.COMPLETED;
+        request.processedById = adminId;
+        request.processedAt = new Date();
+
+        if (isFinalWithdrawAttempt) {
+          campaign.status = CampaignStatus.WITHDRAWN;
+        }
+
+        await campaignRepo.save(campaign);
+        await withdrawRepo.save(request);
+      } else {
+        if (!rejectReason) {
+          throw new BadRequestError(
+            'Cần có lý do từ chối khi từ chối yêu cầu rút tiền'
+          );
+        }
+
+        request.status = WithdrawStatus.REJECTED;
+        request.rejectReason = rejectReason;
+
+        await withdrawRepo.save(request);
+      }
+
+      await auditRepo.save({
+        action:
+          action === 'approve'
+            ? AuditAction.WITHDRAW_APPROVED
+            : AuditAction.WITHDRAW_REJECTED,
+        actorId: adminId,
+        targetId: id,
+        targetType: 'WithdrawRequest',
+        metadata: {
+          action,
+          rejectReason,
+          note:
+            'Hệ thống đang dùng chuyển tay thay vì tự động. Vì vậy withdraw sẽ được tính là success always.',
+        },
+      });
+
+      return request;
     });
-    if (!request) throw new NotFoundError('Withdraw request not found');
-
-    if (request.status !== WithdrawStatus.PENDING) {
-      throw new ConflictError('Withdraw request already processed');
-    }
-
-    request.processedById = adminId;
-    request.processedAt = new Date();
 
     if (action === 'approve') {
-      request.status = WithdrawStatus.APPROVED;
-      // TODO: Actual bank transfer logic
-      // In production, trigger actual bank transfer here
-      request.status = WithdrawStatus.COMPLETED;
-
-      // Update campaign status
-      request.campaign.status = CampaignStatus.WITHDRAWN;
-      await CampaignRepository.save(request.campaign);
-
       await emailQueue.add('sendWithdrawApprovedEmail', {
-        email: request.requester.email,
-        creatorName: request.requester.fullName,
-        campaignTitle: request.campaign.title,
-        amount: request.amount,
+        email: result.requester.email,
+        creatorName: result.requester.fullName,
+        campaignTitle: result.campaign.title,
+        amount: result.amount,
       });
     } else {
-      if (!rejectReason) throw new BadRequestError('Reject reason required');
-      request.status = WithdrawStatus.REJECTED;
-      request.rejectReason = rejectReason;
-
       await emailQueue.add('sendWithdrawRejectedEmail', {
-        email: request.requester.email,
-        creatorName: request.requester.fullName,
-        campaignTitle: request.campaign.title,
+        email: result.requester.email,
+        creatorName: result.requester.fullName,
+        campaignTitle: result.campaign.title,
         reason: rejectReason,
       });
     }
 
-    await WithdrawRepository.save(request);
+    return result;
+  }
 
-    await AuditLogRepository.save({
-      action: action === 'approve' ? AuditAction.WITHDRAW_APPROVED : AuditAction.WITHDRAW_REJECTED,
-      actorId: adminId,
-      targetId: id,
-      targetType: 'WithdrawRequest',
-      metadata: { action, rejectReason },
+  private async ensureNoPendingWithdrawals(
+    campaignId: string,
+    excludeRequestId?: string
+  ) {
+    const pendingRequests = await WithdrawRepository.exist({
+      where: {
+        campaignId,
+        status: WithdrawStatus.PENDING,
+        ...(excludeRequestId ? { id: Not(excludeRequestId) } : {}),
+      },
     });
 
-    return request;
+    if (pendingRequests) {
+      throw new BadRequestError(
+        'Hiện đang có yêu cầu rút tiền khác đang chờ xử lý'
+      );
+    }
   }
 
   async listReports(page: number, limit: number, status?: ReportStatus) {
@@ -475,7 +563,7 @@ export class AdminService {
       where: { id },
       relations: ['campaign', 'reporter', 'resolvedBy'],
     });
-    if (!report) throw new NotFoundError('Report not found');
+    if (!report) throw new NotFoundError('Báo cáo không tìm thấy');
 
     report.status = ReportStatus.RESOLVED;
     report.resolvedById = adminId;

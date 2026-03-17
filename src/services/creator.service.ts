@@ -1,158 +1,193 @@
-import { CampaignRequestRepository, CampaignRepository } from '../repositories/campaign.repository';
-import { DonationRepository } from '../repositories/donation.repository';
+import { AppDataSource } from '../config/database';
+import { Campaign, CampaignStatus } from '../entities/Campaign';
+import { CampaignRequestStatus } from '../entities/CampaignRequest';
+import { Donation, DonationStatus } from '../entities/Donation';
 import { UserRepository } from '../repositories/user.repository';
-import { BadRequestError, NotFoundError } from '../utils/errors';
-import type { CreatorDashboardQueryDto } from '../validators/creator.validator';
-import type { CreatorDashboardResponseDto } from '../dtos/creator/response.dto';
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-const buildRelativeTimeLabel = (date: Date): string => {
-  const diffMs = Date.now() - date.getTime();
-  const diffMinutes = Math.floor(diffMs / (60 * 1000));
-  if (diffMinutes < 1) return 'Vua xong';
-  if (diffMinutes < 60) return `${diffMinutes} phut truoc`;
-
-  const diffHours = Math.floor(diffMinutes / 60);
-  if (diffHours < 24) return `${diffHours} gio truoc`;
-
-  const diffDays = Math.floor(diffHours / 24);
-  return `${diffDays} ngay truoc`;
-};
-
-const calculateDaysLeft = (deadline: Date): number => {
-  const diffMs = deadline.getTime() - Date.now();
-  if (diffMs <= 0) return 0;
-  return Math.ceil(diffMs / DAY_MS);
-};
-
-const encodeCursor = (createdAt: Date, id: string): string =>
-  Buffer.from(`${createdAt.toISOString()}|${id}`, 'utf8').toString('base64url');
-
-const decodeCursor = (cursor: string, fieldName: string): { createdAt: Date; id: string } => {
-  try {
-    const decoded = Buffer.from(cursor, 'base64url').toString('utf8');
-    const [createdAtIso, id] = decoded.split('|');
-    if (!createdAtIso || !id) {
-      throw new Error('Invalid cursor format');
-    }
-
-    const createdAt = new Date(createdAtIso);
-    if (Number.isNaN(createdAt.getTime())) {
-      throw new Error('Invalid cursor timestamp');
-    }
-
-    return { createdAt, id };
-  } catch {
-    throw new BadRequestError(`${fieldName} is invalid`);
-  }
-};
+import { CampaignRepository, CampaignRequestRepository } from '../repositories/campaign.repository';
+import { NotFoundError } from '../utils/errors';
 
 export class CreatorService {
-  async getDashboard(userId: string, query: CreatorDashboardQueryDto): Promise<CreatorDashboardResponseDto> {
-    const campaignLimit = query.campaignLimit ?? 3;
-    const donationLimit = query.donationLimit ?? 5;
-    const campaignCursor = query.campaignCursor
-      ? decodeCursor(query.campaignCursor, 'campaignCursor')
-      : undefined;
-    const donationCursor = query.donationCursor
-      ? decodeCursor(query.donationCursor, 'donationCursor')
-      : undefined;
-    const timezone = query.timezone ?? 'Asia/Ho_Chi_Minh';
-
-    if (timezone !== 'Asia/Ho_Chi_Minh') {
-      throw new BadRequestError('Only Asia/Ho_Chi_Minh timezone is currently supported');
+  /**
+   * UC: View Creator Dashboard Stats
+   * Fetches summary statistics, recent campaigns, recent donations, and notifications.
+   */
+  async getDashboard(
+    userId: string,
+    options: {
+      campaignLimit: number;
+      donationLimit: number;
+    },
+  ) {
+    const user = await UserRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundError('User not found');
     }
 
-    const user = await UserRepository.findOne({ where: { id: userId } });
-    if (!user) throw new NotFoundError('User not found');
+    const { campaignLimit, donationLimit } = options;
 
-    const [campaignStats, requestStats, previewCampaignsResult, recentDonationsResult] = await Promise.all([
-      CampaignRepository.getCreatorSummaryStats(userId),
-      CampaignRequestRepository.getCreatorRequestStats(userId),
-      CampaignRepository.findCreatorPreviewWithCursor(userId, campaignLimit, campaignCursor),
-      DonationRepository.findRecentByCreatorCampaignsWithCursor(userId, donationLimit, donationCursor),
-    ]);
+    // --- 1. Summary Stats ---
 
-    const previewCampaigns = previewCampaignsResult.items;
-    const recentDonations = recentDonationsResult.items;
+    // Total Raised Amount from all created campaigns
+    const totalRaisedResult = await AppDataSource.createQueryBuilder()
+      .select('SUM(campaign.raisedAmount)', 'total')
+      .from(Campaign, 'campaign')
+      .where('campaign.creatorId = :userId', { userId })
+      .getRawOne();
 
-    const myCampaignsPreview = previewCampaigns.map((campaign) => ({
-      id: campaign.id,
-      title: campaign.title,
-      thumbnailUrl: campaign.thumbnailUrl ?? null,
-      status: campaign.status,
-      raisedAmount: Number(campaign.raisedAmount),
-      goalAmount: Number(campaign.goalAmount),
-      progressPercent: campaign.progressPercent,
-      donorCount: campaign.donorCount,
-      daysLeft: calculateDaysLeft(campaign.deadline),
-      deadline: campaign.deadline,
-    }));
+    // Active Campaigns
+    const activeCampaignCount = await CampaignRepository.count({
+      where: { creatorId: userId, status: CampaignStatus.ACTIVE },
+    });
 
-    const recentDonationsToMyCampaigns = recentDonations.map((donation) => ({
-      id: donation.id,
-      campaignId: donation.campaignId,
-      campaignTitle: donation.campaign?.title ?? 'Unknown campaign',
-      amount: Number(donation.amount),
-      createdAt: donation.createdAt,
-      relativeTimeLabel: buildRelativeTimeLabel(donation.createdAt),
-      isAnonymous: donation.isAnonymous,
-      donorDisplayName: donation.isAnonymous
-        ? 'Nha hao tam an danh'
-        : (donation.donor?.fullName ?? 'Guest donor'),
-      status: donation.status,
-    }));
+    // Pending Requests
+    const pendingRequestCount = await CampaignRequestRepository.count({
+      where: { requesterId: userId, status: CampaignRequestStatus.PENDING },
+    });
 
-    const nextCampaignCursor = previewCampaignsResult.hasMore && previewCampaigns.length > 0
-      ? encodeCursor(previewCampaigns[previewCampaigns.length - 1].createdAt, previewCampaigns[previewCampaigns.length - 1].id)
-      : null;
+    // Total Donors directly supporting this creator's campaigns
+    const totalDonorsResult = await AppDataSource.createQueryBuilder()
+      .select('COUNT(DISTINCT donation.donorId)', 'count')
+      .from(Donation, 'donation')
+      .innerJoin('donation.campaign', 'campaign')
+      .where('campaign.creatorId = :userId', { userId })
+      .andWhere('donation.status = :status', { status: DonationStatus.SUCCESS })
+      .getRawOne();
 
-    const nextDonationCursor = recentDonationsResult.hasMore && recentDonations.length > 0
-      ? encodeCursor(recentDonations[recentDonations.length - 1].createdAt, recentDonations[recentDonations.length - 1].id)
-      : null;
-
+    // Days since joined
     const daysSinceJoined = Math.max(
       0,
-      Math.floor((Date.now() - user.createdAt.getTime()) / DAY_MS),
+      Math.floor((Date.now() - user.createdAt.getTime()) / (1000 * 60 * 60 * 24))
     );
 
+    const summary = {
+      totalRaisedAmount: Number(totalRaisedResult?.total || 0),
+      activeCampaignCount,
+      pendingRequestCount,
+      totalDonorCount: Number(totalDonorsResult?.count || 0),
+      daysSinceJoined,
+    };
+
+    // --- 2. KYC ---
+    const kyc = {
+      isKycVerified: user.isKycVerified,
+      kycStatus: user.isKycVerified ? 'verified' : 'unverified',
+    };
+
+    // --- 3. Quick Nav Navigations ---
+    const myRequestsTotal = await CampaignRequestRepository.count({
+      where: { requesterId: userId },
+    });
+
+    const myCampaignsTotal = await CampaignRepository.count({
+      where: { creatorId: userId },
+    });
+
+    const quickNav = {
+      myRequestsTotal,
+      myRequestsPending: pendingRequestCount,
+      myCampaignsTotal,
+      myCampaignsActive: activeCampaignCount,
+    };
+
+    // --- 4. Recent Donations to My Campaigns ---
+    const [recentDonationsList] = await AppDataSource.createQueryBuilder()
+      .select('donation')
+      .from(Donation, 'donation')
+      .leftJoinAndSelect('donation.donor', 'donor')
+      .innerJoinAndSelect('donation.campaign', 'campaign')
+      .where('campaign.creatorId = :userId', { userId })
+      .andWhere('donation.status = :status', { status: DonationStatus.SUCCESS })
+      .orderBy('donation.createdAt', 'DESC')
+      .take(donationLimit)
+      .getManyAndCount();
+
+    const recentDonationsToMyCampaigns = recentDonationsList.map((d) => ({
+      id: d.id,
+      campaignId: d.campaign.id,
+      campaignTitle: d.campaign.title,
+      amount: d.amount,
+      createdAt: d.createdAt.toISOString(),
+      isAnonymous: d.isAnonymous,
+      donorDisplayName: d.isAnonymous ? 'Nhà hảo tâm ẩn danh' : d.donor?.fullName || 'Người dùng',
+      status: d.status,
+    }));
+
+    // --- 5. My Campaigns Preview ---
+    const [recentCampaignsList] = await CampaignRepository.findAndCount({
+      where: { creatorId: userId },
+      order: { createdAt: 'DESC' },
+      take: campaignLimit,
+    });
+
+    const myCampaignsPreview = recentCampaignsList.map((c) => {
+      const daysLeft = Math.max(
+        0,
+        Math.ceil((c.deadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+      );
+
+      const progressPercent = c.goalAmount > 0 ? (c.raisedAmount / c.goalAmount) * 100 : 0;
+
+      return {
+        id: c.id,
+        title: c.title,
+        thumbnailUrl: c.thumbnailUrl,
+        status: c.status,
+        raisedAmount: c.raisedAmount,
+        goalAmount: c.goalAmount,
+        progressPercent: Math.min(100, progressPercent),
+        donorCount: c.donorCount,
+        daysLeft,
+        deadline: c.deadline.toISOString(),
+      };
+    });
+
+    // --- 6. Alerts ---
+    // Check for rejected requests recently
+    const hasRejectedRequests = await CampaignRequestRepository.exist({
+      where: { requesterId: userId, status: CampaignRequestStatus.REJECTED },
+    });
+
+    // Check for overdue active campaigns
+    const hasOverdueCampaigns = await CampaignRepository.exist({
+      where: {
+        creatorId: userId,
+        status: CampaignStatus.ACTIVE,
+      },
+    }).then(async (hasActive) => {
+      if (!hasActive) return false;
+      const count = await AppDataSource.createQueryBuilder()
+        .from(Campaign, 'campaign')
+        .where('campaign.creatorId = :userId', { userId })
+        .andWhere('campaign.status = :status', { status: CampaignStatus.ACTIVE })
+        .andWhere('campaign.deadline < NOW()')
+        .getCount();
+      return count > 0;
+    });
+
+    const alerts = {
+      needKyc: !user.isKycVerified,
+      hasOverdueCampaigns,
+      hasRejectedRequests,
+    };
+
     return {
-      summary: {
-        totalRaisedAmount: campaignStats.totalRaisedAmount,
-        activeCampaignCount: campaignStats.activeCampaignCount,
-        pendingRequestCount: requestStats.pending,
-        totalDonorCount: campaignStats.totalDonorCount,
-        daysSinceJoined,
-      },
-      kyc: {
-        isKycVerified: user.isKycVerified,
-        kycStatus: user.isKycVerified ? 'verified' : 'unverified',
-      },
-      quickNav: {
-        myRequestsTotal: requestStats.total,
-        myRequestsPending: requestStats.pending,
-        myCampaignsTotal: campaignStats.totalCampaignCount,
-        myCampaignsActive: campaignStats.activeCampaignCount,
-      },
+      summary,
+      kyc,
+      quickNav,
       recentDonationsToMyCampaigns,
       recentDonationsPagination: {
         limit: donationLimit,
-        hasMore: recentDonationsResult.hasMore,
-        nextCursor: nextDonationCursor,
+        hasMore: false, // pagination cursor logic can be added later if scale demands
+        nextCursor: null,
       },
       myCampaignsPreview,
       myCampaignsPreviewPagination: {
         limit: campaignLimit,
-        hasMore: previewCampaignsResult.hasMore,
-        nextCursor: nextCampaignCursor,
+        hasMore: false,
+        nextCursor: null,
       },
-      alerts: {
-        needKyc: !user.isKycVerified,
-        hasOverdueCampaigns: campaignStats.overdueCampaignCount > 0,
-        hasRejectedRequests: requestStats.rejected > 0,
-      },
-      updatedAt: new Date(),
+      alerts,
+      updatedAt: new Date().toISOString(),
     };
   }
 }

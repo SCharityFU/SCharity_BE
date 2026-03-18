@@ -100,7 +100,9 @@ async function bootstrap() {
 }
 
 // Start the email worker in the same process (can be split into separate process for production)
-import('./queues/processors/email.processor');
+if (!process.env.VERCEL) {
+  import('./queues/processors/email.processor');
+}
 
 bootstrap();
 

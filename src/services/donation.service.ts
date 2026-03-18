@@ -47,7 +47,7 @@ export class DonationService {
     // PayOS description: max 25 chars, only a-zA-Z0-9 and space
     const description = `Donation ${orderCode}`.replace(/[^a-zA-Z0-9 ]/g, '').substring(0, 25);
 
-    const clientUrl = process.env.CLIENT_URL || 'http://localhost:3001';
+    //const clientUrl = process.env.CLIENT_URL || 'http://localhost:3001';
 
     try {
       const paymentLink = await payos.paymentRequests.create({
@@ -120,6 +120,10 @@ export class DonationService {
       });
       await CommentRepository.save(comment);
     }
+
+    // 6. Xóa cache campaign detail để FE luôn lấy dữ liệu mới nhất
+    const campaignCacheKey = `campaign:v2:${donation.campaignId}`;
+    await import('../config/redis').then(({ redisClient }) => redisClient.del(campaignCacheKey));
 
     // 6. Email notifications
     const campaign = donation.campaign;

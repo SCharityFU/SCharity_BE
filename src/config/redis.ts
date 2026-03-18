@@ -15,9 +15,13 @@ const redisConfig: RedisOptions = {
   },
 };
 
-export const redisClient = new Redis(redisConfig);
+const globalForRedis = global as unknown as { redisClient: Redis };
 
-export const redisBullMQ = new Redis(redisConfig);
+export const redisClient = globalForRedis.redisClient || new Redis(redisConfig);
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForRedis.redisClient = redisClient;
+}
 
 redisClient.on('connect', () => {
   // eslint-disable-next-line no-console

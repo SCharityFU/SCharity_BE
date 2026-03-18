@@ -18,6 +18,11 @@ import { initCampaignStatusCron } from './jobs/campaign-status.cron';
 
 const app = express();
 
+// ── Vercel / Reverse Proxy Support ────────────────────────────────────────────
+// Required for express-rate-limit when behind a proxy like Vercel
+app.set('trust proxy', 1);
+
+
 // ── Security ──────────────────────────────────────────────────────────────────
 app.use(helmet());
 

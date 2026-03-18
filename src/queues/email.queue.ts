@@ -1,14 +1,8 @@
 import { Queue } from 'bullmq';
-
-const redisConnection = {
-  host: process.env.REDIS_HOST || 'localhost',
-  port: Number(process.env.REDIS_PORT) || 6379,
-  password: process.env.REDIS_PASSWORD || undefined,
-  maxRetriesPerRequest: null as null,
-};
+import { redisClient } from '../config/redis';
 
 export const emailQueue = new Queue('email', {
-  connection: redisConnection,
+  connection: redisClient as any,
   defaultJobOptions: {
     attempts: 3,
     backoff: {

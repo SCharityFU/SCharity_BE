@@ -9,6 +9,7 @@ import {
   adminCampaignAnalyticsQuerySchema,
   adminCampaignRequestsQuerySchema,
   adminCampaignTransactionsQuerySchema,
+  adminUsersQuerySchema,
 } from '../validators/admin.validator';
 
 /**
@@ -44,6 +45,69 @@ router.use(authenticate, requireAdmin);
  *                       $ref: '#/components/schemas/DashboardStats'
  */
 router.get('/dashboard', adminController.getDashboardStats);
+
+/**
+ * @swagger
+ * /admin/users:
+ *   get:
+ *     summary: List users in system (safe admin projection)
+ *     description: Returns paginated users with only non-sensitive fields.
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/pageParam'
+ *       - $ref: '#/components/parameters/limitParam'
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search by full name or email (case-insensitive)
+ *       - in: query
+ *         name: isEmailVerified
+ *         schema:
+ *           type: boolean
+ *         description: Filter by email verification status
+ *     responses:
+ *       200:
+ *         description: Paginated user list
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Success
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                         format: uuid
+ *                       fullName:
+ *                         type: string
+ *                       email:
+ *                         type: string
+ *                         format: email
+ *                       isEmailVerified:
+ *                         type: boolean
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                 pagination:
+ *                   $ref: '#/components/schemas/PaginationMeta'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin only
+ */
+router.get('/users', validateQuery(adminUsersQuerySchema), adminController.getUsers);
 
 /**
  * @swagger

@@ -19,4 +19,9 @@ export const AppDataSource = new DataSource({
   migrations: [__dirname + '/../migrations/*.{ts,js}'],
   subscribers: [],
   ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+  extra: {
+    // Vercel Serverless: Limit to 1 idle connection per lambda to avoid exhausting PG connection limits
+    max: process.env.VERCEL ? 1 : 10,
+    connectionTimeoutMillis: 5000,
+  },
 });

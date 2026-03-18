@@ -6,6 +6,7 @@ const redisConfig: RedisOptions = {
   port: parseInt(process.env.REDIS_PORT || '6379'),
   password: process.env.REDIS_PASSWORD || undefined,
   maxRetriesPerRequest: null,
+  lazyConnect: true,
   ...(process.env.REDIS_TLS === 'true' && {
     tls: { rejectUnauthorized: false },
   }),

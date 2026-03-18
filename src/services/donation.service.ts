@@ -55,7 +55,7 @@ export class DonationService {
         amount: dto.amount,
         description,
         returnUrl: `https://s-charity-fe.vercel.app/donations/callback?orderCode=${orderCode}`,
-        cancelUrl: `${clientUrl}/donations/callback?orderCode=${orderCode}&cancel=true`,
+        cancelUrl: `https://s-charity-fe.vercel.app/donations/callback?orderCode=${orderCode}&cancel=true`,
       });
 
       return {

@@ -22,6 +22,7 @@ import redisClient from '../config/redis';
 import { UserRepository } from '../repositories/user.repository';
 import { CreatorCampaignAnalyticsResponseDto } from '../dtos/campaign/response.dto';
 import { MAXIMUM_CAMPAIGN_REQUESTS_DEADLINE_DAYS } from '../entities/CampaignRequest';
+import { mapCampaignDetailDto } from '../dtos/campaign/mapper';
 
 const CAMPAIGN_CACHE_TTL = 300; // 5 minutes
 const TOP_DONORS_PER_DAY = 5;
@@ -261,14 +262,25 @@ export class CampaignService {
       }),
     ]);
 
+    // Guard against raisedAmount being stale by comparing with actual donations sum
+    const raisedAmount = donations.reduce((sum, d) => sum + Number(d.amount), 0);
+    const existingAmount = campaign.raisedAmount ? Number(campaign.raisedAmount) : 0;
+    const realAmount = Math.max(raisedAmount, existingAmount);
+    if (realAmount !== existingAmount) {
+      campaign.raisedAmount = realAmount;
+      await CampaignRepository.save(campaign);
+    }
+
     Object.assign(campaign, {
       donations,
       updates,
       comments,
     });
 
-    await redisClient.setex(cacheKey, CAMPAIGN_CACHE_TTL, JSON.stringify(campaign));
-    return campaign;
+    const mapped = mapCampaignDetailDto(campaign);
+
+    await redisClient.setex(cacheKey, CAMPAIGN_CACHE_TTL, JSON.stringify(mapped));
+    return mapped;
   }
 
   async updateCampaign(

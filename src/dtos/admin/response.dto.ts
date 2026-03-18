@@ -145,6 +145,14 @@ export interface AdminCampaignDonationResponseDto {
   campaignName: string;
 }
 
+export interface AdminUserListItemDto {
+  id: string;
+  fullName: string;
+  email: string;
+  isEmailVerified: boolean;
+  createdAt: Date;
+}
+
 // Admin-specific list/detail responses reuse these DTOs:
 // - CampaignRequestResponseDto   (from campaign)
 // - CampaignDto                  (from campaign)

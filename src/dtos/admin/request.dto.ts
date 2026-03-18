@@ -66,3 +66,10 @@ export interface AdminCampaignTransactionsQueryDto {
   startDate?: string;
   endDate?: string;
 }
+
+export interface AdminUsersQueryDto {
+  page?: number;
+  limit?: number;
+  search?: string;
+  isEmailVerified?: boolean;
+}

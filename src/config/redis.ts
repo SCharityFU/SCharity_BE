@@ -6,6 +6,7 @@ const redisConfig: RedisOptions = {
   port: parseInt(process.env.REDIS_PORT || '6379'),
   password: process.env.REDIS_PASSWORD || undefined,
   maxRetriesPerRequest: null,
+  lazyConnect: true,
   ...(process.env.REDIS_TLS === 'true' && {
     tls: { rejectUnauthorized: false },
   }),
@@ -15,9 +16,13 @@ const redisConfig: RedisOptions = {
   },
 };
 
-export const redisClient = new Redis(redisConfig);
+const globalForRedis = global as unknown as { redisClient: Redis };
 
-export const redisBullMQ = new Redis(redisConfig);
+export const redisClient = globalForRedis.redisClient || new Redis(redisConfig);
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForRedis.redisClient = redisClient;
+}
 
 redisClient.on('connect', () => {
   // eslint-disable-next-line no-console

@@ -18,11 +18,19 @@ import { initCampaignStatusCron } from './jobs/campaign-status.cron';
 
 const app = express();
 
+// ── Vercel / Reverse Proxy Support ────────────────────────────────────────────
+// Required for express-rate-limit when behind a proxy like Vercel
+app.set('trust proxy', 1);
+
+
 // ── Security ──────────────────────────────────────────────────────────────────
 app.use(helmet());
+
+const clientUrl = process.env.CLIENT_URL ? process.env.CLIENT_URL.replace(/\/$/, '') : '*';
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || '*',
+    origin: clientUrl === '*' ? '*' : [clientUrl, `${clientUrl}/`],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -42,6 +50,16 @@ if (process.env.NODE_ENV !== 'test') {
 app.use(globalRateLimiter);
 
 // ── Health check ──────────────────────────────────────────────────────────────
+app.get('/', (_req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'SCharity API is running',
+    version: '1.0.0',
+    docs: '/api-docs',
+    health: '/health',
+  });
+});
+
 app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
@@ -59,19 +77,25 @@ app.use(errorHandler);
 // ── Start server ──────────────────────────────────────────────────────────────
 async function bootstrap() {
   try {
-    await AppDataSource.initialize();
-    console.log('[Database] Connected successfully');
+    if (!AppDataSource.isInitialized) {
+      await AppDataSource.initialize();
+      console.log('[Database] Connected successfully');
+    }
 
     initCampaignStatusCron();
 
-    const PORT = Number(process.env.PORT) || 3000;
-    app.listen(PORT, () => {
-      console.log(`[Server] Running on http://localhost:${PORT}`);
-      console.log(`[Docs]   Swagger UI at http://localhost:${PORT}/api-docs`);
-    });
+    if (!process.env.VERCEL) {
+      const PORT = Number(process.env.PORT) || 3000;
+      app.listen(PORT, () => {
+        console.log(`[Server] Running on http://localhost:${PORT}`);
+        console.log(`[Docs]   Swagger UI at http://localhost:${PORT}/api-docs`);
+      });
+    }
   } catch (err) {
     console.error('[Fatal] Failed to start server:', err);
-    process.exit(1);
+    if (!process.env.VERCEL) {
+      process.exit(1);
+    }
   }
 }
 

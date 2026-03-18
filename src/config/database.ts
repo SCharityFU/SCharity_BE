@@ -13,8 +13,15 @@ export const AppDataSource = new DataSource({
   database: process.env.DB_DATABASE || 'scharity',
   synchronize: process.env.NODE_ENV === 'development',
   logging: process.env.NODE_ENV === 'development',
-  entities: [__dirname + '/../entities/*.{ts,js}'],
+  entities: process.env.VERCEL
+    ? [__dirname + '/dist/entities/*.js']
+    : [__dirname + '/../entities/*.{ts,js}'],
   migrations: [__dirname + '/../migrations/*.{ts,js}'],
   subscribers: [],
   ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+  extra: {
+    // Vercel Serverless: Limit to 1 idle connection per lambda to avoid exhausting PG connection limits
+    max: process.env.VERCEL ? 1 : 10,
+    connectionTimeoutMillis: 5000,
+  },
 });

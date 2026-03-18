@@ -82,7 +82,7 @@ export class User {
   @Column({ default: false })
   isEmailVerified: boolean;
 
-  @Column({ default: false })
+  @Column({ default: true })
   isKycVerified: boolean;
 
   @Column({ nullable: true })

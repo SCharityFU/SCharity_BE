@@ -478,7 +478,7 @@ router.get('/:id/updates', campaignController.getCampaignUpdates);
  *                     pagination:
  *                       $ref: '#/components/schemas/PaginationMeta'
  */
-router.get('/:campaignId/donations', donationController.getCampaignDonations);
+router.get('/:campaignId/donations', authenticate, donationController.getCampaignDonations);
 
 /**
  * @swagger

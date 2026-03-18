@@ -66,6 +66,7 @@ export const donationController = {
         req.params.campaignId,
         page,
         limit,
+        req.user!.id,
         search,
         sortBy,
         sortOrder as 'ASC' | 'DESC',

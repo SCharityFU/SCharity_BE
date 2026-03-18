@@ -10,7 +10,7 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-const FROM = `"${process.env.SMTP_FROM_NAME || 'SCharity'}" <${process.env.SMTP_FROM_EMAIL || 'no-reply@scharity.org'}>`;
+const FROM = `"${process.env.SMTP_FROM_NAME || 'FCam'}" <${process.env.SMTP_FROM_EMAIL || 'no-reply@fcam.org'}>`;
 
 async function sendMail(to: string, subject: string, html: string) {
   await transporter.sendMail({ from: FROM, to, subject, html });
@@ -21,7 +21,7 @@ export const emailService = {
     const link = `${process.env.CLIENT_URL || 'http://localhost:3001'}/verify-email?token=${token}`;
     await sendMail(
       email,
-      'Xác Thực Tài Khoản SCharity',
+      'Xác Thực Tài Khoản FCam',
       `
       <!DOCTYPE html>
       <html>
@@ -45,17 +45,17 @@ export const emailService = {
           <div class="container">
               <div class="header">
                   <!-- Optional: Replace with actual logo URL later if available -->
-                  <h1 style="font-size: 40px;">SCharity</h1>
+                  <h1 style="font-size: 40px;">FCam</h1>
               </div>
               <div class="content">
                   <h2>Xác thực địa chỉ email</h2>
-                  <p style="font-weight: bold; color: #18181b;">Chào mừng ${name} đến với SCharity!</p>
+                  <p style="font-weight: bold; color: #18181b;">Chào mừng ${name} đến với FCam!</p>
                   <p>Vui lòng nhấn vào nút bên dưới để xác nhận địa chỉ email của bạn và hoàn tất quá trình đăng ký tài khoản. Đường link này sẽ hết hạn trong vòng 24 giờ.</p>
                   <a href="${link}" class="button" style="color: #ffffff;">Xác Nhận Email</a>
-                  <p style="margin-top: 30px; font-size: 14px; color: #a1a1aa;">Nếu bạn không tạo tài khoản trên SCharity, bạn có thể bỏ qua email này.</p>
+                  <p style="margin-top: 30px; font-size: 14px; color: #a1a1aa;">Nếu bạn không tạo tài khoản trên FCam, bạn có thể bỏ qua email này.</p>
               </div>
               <div class="footer">
-                  <p>Copyright © 2026, SCharity Platform</p>
+                  <p>Copyright © 2026, FCam Platform</p>
                   <p>Cùng nhau tạo nên những thay đổi tích cực.</p>
               </div>
           </div>
@@ -69,7 +69,7 @@ export const emailService = {
     const link = `${process.env.CLIENT_URL || 'http://localhost:3001'}/reset-password?token=${token}`;
     await sendMail(
       email,
-      'Khôi Phục Mật Khẩu SCharity',
+      'Khôi Phục Mật Khẩu FCam',
       `
       <!DOCTYPE html>
       <html>
@@ -92,17 +92,17 @@ export const emailService = {
       <body>
           <div class="container">
               <div class="header">
-                  <h1>SCharity</h1>
+                  <h1>FCam</h1>
               </div>
               <div class="content">
                   <h2>Yêu cầu khôi phục mật khẩu</h2>
                   <p style="font-weight: bold; color: #18181b;">Chào ${name},</p>
-                  <p>Chúng tôi nhận được yêu cầu khôi phục mật khẩu cho tài khoản của bạn trên SCharity. Vui lòng nhấn vào nút bên dưới để thiết lập mật khẩu mới.</p>
+                  <p>Chúng tôi nhận được yêu cầu khôi phục mật khẩu cho tài khoản của bạn trên FCam. Vui lòng nhấn vào nút bên dưới để thiết lập mật khẩu mới.</p>
                   <a href="${link}" class="button" style="color: #ffffff;">Đặt Lại Mật Khẩu</a>
                   <p style="margin-top: 30px; font-size: 14px; color: #a1a1aa;">Đường dẫn này sẽ hết hạn trong 1 giờ.<br/>Nếu bạn không gửi yêu cầu này, xin vui lòng bỏ qua email.</p>
               </div>
               <div class="footer">
-                  <p>Copyright © 2026, SCharity Platform</p>
+                  <p>Copyright © 2026, FCam Platform</p>
                   <p>Cùng nhau tạo nên những thay đổi tích cực.</p>
               </div>
           </div>
@@ -121,7 +121,7 @@ export const emailService = {
   ) {
     await sendMail(
       email,
-      'Donation Receipt - SCharity',
+      'Donation Receipt - FCam',
       `<p>Dear ${donorName},</p><p>Thank you for your generous donation of <strong>${amount.toLocaleString('vi-VN')} VND</strong> to <strong>${campaignTitle}</strong>.</p><p>Transaction ID: ${donationId}</p><p>Together we make a difference!</p>`,
     );
   },
@@ -135,7 +135,7 @@ export const emailService = {
   ) {
     await sendMail(
       email,
-      'New Donation Received - SCharity',
+      'New Donation Received - FCam',
       `<p>Hi ${creatorName},</p><p><strong>${donorName}</strong> just donated <strong>${amount.toLocaleString('vi-VN')} VND</strong> to your campaign <strong>${campaignTitle}</strong>.</p>`,
     );
   },
@@ -143,7 +143,7 @@ export const emailService = {
   async sendCampaignApprovedEmail(email: string, creatorName: string, campaignTitle: string) {
     await sendMail(
       email,
-      'Campaign Approved - SCharity',
+      'Campaign Approved - FCam',
       `<p>Hi ${creatorName},</p><p>Your campaign <strong>${campaignTitle}</strong> has been approved and is now live!</p>`,
     );
   },
@@ -156,7 +156,7 @@ export const emailService = {
   ) {
     await sendMail(
       email,
-      'Campaign Request Rejected - SCharity',
+      'Campaign Request Rejected - FCam',
       `<p>Hi ${creatorName},</p><p>Unfortunately, your campaign request <strong>${campaignTitle}</strong> was rejected.</p><p>Reason: ${reason}</p>`,
     );
   },
@@ -169,7 +169,7 @@ export const emailService = {
   ) {
     await sendMail(
       email,
-      'Campaign Suspended - SCharity',
+      'Campaign Suspended - FCam',
       `<p>Hi ${creatorName},</p><p>Your campaign <strong>${campaignTitle}</strong> has been suspended.</p><p>Reason: ${reason}</p><p>Please contact support for more information.</p>`,
     );
   },
@@ -183,7 +183,7 @@ export const emailService = {
     const statusText = restoredStatus === 'closed' ? 'đã đóng (hết hạn)' : 'đang hoạt động';
     await sendMail(
       email,
-      'Campaign Unsuspended - SCharity',
+      'Campaign Unsuspended - FCam',
       `<p>Hi ${creatorName},</p><p>Your campaign <strong>${campaignTitle}</strong> has been unsuspended and is now <strong>${statusText}</strong>.</p><p>Thank you for your patience.</p>`,
     );
   },
@@ -196,7 +196,7 @@ export const emailService = {
   ) {
     await sendMail(
       email,
-      'Withdrawal Approved - SCharity',
+      'Withdrawal Approved - FCam',
       `<p>Hi ${creatorName},</p><p>Your withdrawal request of <strong>${amount.toLocaleString('vi-VN')} VND</strong> for campaign <strong>${campaignTitle}</strong> has been approved and will be processed shortly.</p>`,
     );
   },
@@ -209,7 +209,7 @@ export const emailService = {
   ) {
     await sendMail(
       email,
-      'Withdrawal Rejected - SCharity',
+      'Withdrawal Rejected - FCam',
       `<p>Hi ${creatorName},</p><p>Your withdrawal request for campaign <strong>${campaignTitle}</strong> has been rejected.</p><p>Reason: ${reason}</p>`,
     );
   },
@@ -225,7 +225,7 @@ export const emailService = {
       emails.map((email) =>
         sendMail(
           email,
-          `Update on "${campaignTitle}" - SCharity`,
+          `Update on "${campaignTitle}" - SFCam`,
           `<p>The campaign <strong>${campaignTitle}</strong> has a new update: <strong>${updateTitle}</strong>.</p><p><a href="${link}">View update</a></p>`,
         ),
       ),
@@ -243,12 +243,12 @@ export const emailService = {
     newAccountHolderName: string,
     changeRequestId: string,
   ) {
-    const adminEmail = process.env.ADMIN_EMAIL || 'admin@scharity.org';
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@fcam.org';
     const loginLink = `${process.env.CLIENT_URL || 'http://localhost:3001'}/admin/login`;
 
     await sendMail(
       adminEmail,
-      'New Bank Account Change Request - SCharity',
+      'New Bank Account Change Request - FCam',
       `<p>Admin action required</p>
       <p>User <strong>${requesterName}</strong> (${requesterEmail}) has requested to change their bank account information.</p>
       <h3>Current Info:</h3>
@@ -275,7 +275,7 @@ export const emailService = {
   ) {
     await sendMail(
       email,
-      'Bank Account Change Approved - SCharity',
+      'Bank Account Change Approved - FCam',
       `<p>Hi ${userName},</p>
        <p>Great news! Your request to change your bank account information to <strong>${bankName} - ${accountNumber}</strong> has been approved.</p>
        <p>You can now use this account to withdraw funds from your closed campaigns.</p>`,
@@ -285,7 +285,7 @@ export const emailService = {
   async sendBankChangeRejectedEmail(email: string, userName: string, reason: string) {
     await sendMail(
       email,
-      'Bank Account Change Rejected - SCharity',
+      'Bank Account Change Rejected - FCam',
       `<p>Hi ${userName},</p>
        <p>Unfortunately, your request to change your bank account information has been rejected.</p>
        <p><strong>Reason:</strong> ${reason}</p>

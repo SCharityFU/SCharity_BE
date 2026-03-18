@@ -45,6 +45,16 @@ if (process.env.NODE_ENV !== 'test') {
 app.use(globalRateLimiter);
 
 // ── Health check ──────────────────────────────────────────────────────────────
+app.get('/', (_req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'SCharity API is running',
+    version: '1.0.0',
+    docs: '/api-docs',
+    health: '/health',
+  });
+});
+
 app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });

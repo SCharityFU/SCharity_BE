@@ -10,6 +10,7 @@ import {
   toCampaignRequestResponseDto,
   toCampaignDonationAdminDto,
   toAdminCampaignListItemDto,
+  toAdminUserListItemDto,
 } from '../utils/dto-mapper';
 import { Campaign, CampaignStatus, MAXIMUM_WITHDRAWAL_REQUESTS_AMOUNT } from '../entities/Campaign';
 import { CampaignRequestStatus } from '../entities/CampaignRequest';
@@ -138,6 +139,43 @@ const buildDailyChartSeries = (
 };
 
 export class AdminService {
+
+  async listUsers(
+    page: number,
+    limit: number,
+    filters?: {
+      search?: string;
+      isEmailVerified?: boolean;
+    },
+  ) {
+    const query = UserRepository.createQueryBuilder('user')
+      .select([
+        'user.id',
+        'user.fullName',
+        'user.email',
+        'user.isEmailVerified',
+        'user.createdAt',
+      ])
+      .where('user.role = :role', { role: UserRole.USER })
+      .orderBy('user.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    if (filters?.search) {
+      query.andWhere('(user.fullName ILIKE :search OR user.email ILIKE :search)', {
+        search: `%${filters.search}%`,
+      });
+    }
+
+    if (filters?.isEmailVerified !== undefined) {
+      query.andWhere('user.isEmailVerified = :isEmailVerified', {
+        isEmailVerified: filters.isEmailVerified,
+      });
+    }
+
+    const [users, total] = await query.getManyAndCount();
+    return [users.map(toAdminUserListItemDto), total] as const;
+  }
 
   async getDashboardStats(): Promise<DashboardStats> {
     const [campaignStats, donationStats, paidStats, totalUsers, totalCampaignCreators, totalDonors] = await Promise.all(

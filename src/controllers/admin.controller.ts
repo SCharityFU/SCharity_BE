@@ -6,6 +6,7 @@ import { CampaignRequestStatus } from '../entities/CampaignRequest';
 import { WithdrawStatus } from '../entities/WithdrawRequest';
 import { ReportStatus } from '../entities/Report';
 import { CampaignStatus } from '../entities/Campaign';
+import { AdminUsersQueryDto } from '../dtos/admin';
 
 const getPages = (query: Record<string, unknown>) => getPaginationParams(query.page as string, query.limit as string);
 
@@ -16,6 +17,27 @@ export const adminController = {
       sendSuccess(res, stats);
     } catch (err) {
       next(err);
+    }
+  },
+
+  async getUsers(req: Request, res: Response, next: NextFunction) {
+    try {
+      const query = req.query as unknown as AdminUsersQueryDto;
+      const page = query.page ?? 1;
+      const limit = query.limit ?? 10;
+
+      const [users, total] = await adminService.listUsers(page, limit, {
+        search: query.search,
+        isEmailVerified: query.isEmailVerified,
+      });
+
+      sendPaginated(res, users, {
+        page,
+        limit,
+        total,
+      });
+    } catch (error) {
+      next(error);
     }
   },
 

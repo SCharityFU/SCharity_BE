@@ -20,9 +20,12 @@ const app = express();
 
 // ── Security ──────────────────────────────────────────────────────────────────
 app.use(helmet());
+
+const clientUrl = process.env.CLIENT_URL ? process.env.CLIENT_URL.replace(/\/$/, '') : '*';
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || '*',
+    origin: clientUrl === '*' ? '*' : [clientUrl, `${clientUrl}/`],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -59,19 +62,25 @@ app.use(errorHandler);
 // ── Start server ──────────────────────────────────────────────────────────────
 async function bootstrap() {
   try {
-    await AppDataSource.initialize();
-    console.log('[Database] Connected successfully');
+    if (!AppDataSource.isInitialized) {
+      await AppDataSource.initialize();
+      console.log('[Database] Connected successfully');
+    }
 
     initCampaignStatusCron();
 
-    const PORT = Number(process.env.PORT) || 3000;
-    app.listen(PORT, () => {
-      console.log(`[Server] Running on http://localhost:${PORT}`);
-      console.log(`[Docs]   Swagger UI at http://localhost:${PORT}/api-docs`);
-    });
+    if (!process.env.VERCEL) {
+      const PORT = Number(process.env.PORT) || 3000;
+      app.listen(PORT, () => {
+        console.log(`[Server] Running on http://localhost:${PORT}`);
+        console.log(`[Docs]   Swagger UI at http://localhost:${PORT}/api-docs`);
+      });
+    }
   } catch (err) {
     console.error('[Fatal] Failed to start server:', err);
-    process.exit(1);
+    if (!process.env.VERCEL) {
+      process.exit(1);
+    }
   }
 }
 

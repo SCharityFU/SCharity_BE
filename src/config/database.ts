@@ -13,7 +13,9 @@ export const AppDataSource = new DataSource({
   database: process.env.DB_DATABASE || 'scharity',
   synchronize: process.env.NODE_ENV === 'development',
   logging: process.env.NODE_ENV === 'development',
-  entities: [__dirname + '/../entities/*.{ts,js}'],
+  entities: process.env.VERCEL
+    ? [__dirname + '/dist/entities/*.js']
+    : [__dirname + '/../entities/*.{ts,js}'],
   migrations: [__dirname + '/../migrations/*.{ts,js}'],
   subscribers: [],
   ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,

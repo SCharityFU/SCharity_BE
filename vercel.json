@@ -2,7 +2,7 @@
   "version": 2,
   "builds": [
     {
-      "src": "dist/app.js",
+      "src": "src/app.ts",
       "use": "@vercel/node",
       "config": {
         "includeFiles": "dist/entities/**"
@@ -10,9 +10,9 @@
     }
   ],
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "dist/app.js" },
-    { "source": "/health", "destination": "dist/app.js" },
-    { "source": "/api-docs(.*)", "destination": "dist/app.js" },
-    { "source": "/(.*)", "destination": "dist/app.js" }
+    { "source": "/api/(.*)", "destination": "src/app.ts" },
+    { "source": "/health", "destination": "src/app.ts" },
+    { "source": "/api-docs(.*)", "destination": "src/app.ts" },
+    { "source": "/(.*)", "destination": "src/app.ts" }
   ]
 }

@@ -1,20 +1,34 @@
-import nodemailer from 'nodemailer';
+import { BrevoClient } from '@getbrevo/brevo';
+import dotenv from 'dotenv';
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT) || 587,
-  secure: process.env.SMTP_SECURE === 'true',
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
+dotenv.config();
+
+// Initialize Brevo Client
+const client = new BrevoClient({
+  apiKey: process.env.BREVO_API_KEY || '',
 });
 
-const FROM = `"${process.env.SMTP_FROM_NAME || 'FCam'}" <${process.env.SMTP_FROM_EMAIL || 'no-reply@fcam.org'}>`;
+const FROM_NAME = process.env.BREVO_FROM_NAME || process.env.SMTP_FROM_NAME || 'FCam';
+const FROM_EMAIL = process.env.BREVO_FROM_EMAIL || process.env.SMTP_FROM_EMAIL || 'no-reply@fcam.org';
 
 async function sendMail(to: string, subject: string, html: string) {
-  await transporter.sendMail({ from: FROM, to, subject, html });
+  try {
+    await client.transactionalEmails.sendTransacEmail({
+      subject: subject,
+      htmlContent: html,
+      sender: { name: FROM_NAME, email: FROM_EMAIL },
+      to: [{ email: to }],
+    });
+  } catch (error: any) {
+    console.error('Error sending email via Brevo:', error);
+    throw error;
+  }
 }
+
+
+
+
+
 
 export const emailService = {
   async sendVerificationEmail(email: string, name: string, token: string) {

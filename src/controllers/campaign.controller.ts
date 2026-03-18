@@ -1,10 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 import { campaignService } from '../services/campaign.service';
 import { storageService } from '../services/storage.service';
-import { mapCampaignDetailDto } from '../dtos/campaign';
 import { sendSuccess, sendCreated, sendPaginated } from '../utils/response';
 import { getPaginationParams } from '../utils/pagination';
 import { BadRequestError } from '../utils/errors';
+import { validateSubmitRequestFiles } from '../utils/file-upload-validation';
 
 const getPages = (query: Record<string, unknown>) => getPaginationParams(query.page as string, query.limit as string);
 
@@ -25,7 +25,7 @@ export const campaignController = {
   async getCampaign(req: Request, res: Response, next: NextFunction) {
     try {
       const campaign = await campaignService.getCampaignById(req.params.id);
-      sendSuccess(res, mapCampaignDetailDto(campaign));
+      sendSuccess(res, campaign);
     } catch (err) {
       next(err);
     }
@@ -59,6 +59,8 @@ export const campaignController = {
       const thumbnailFile = (req.files as Record<string, Express.Multer.File[]>)?.thumbnail?.[0];
       const mediaFiles = (req.files as Record<string, Express.Multer.File[]>)?.media ?? [];
       const proofFiles = (req.files as Record<string, Express.Multer.File[]>)?.proofDocuments ?? [];
+
+      validateSubmitRequestFiles(thumbnailFile, mediaFiles, proofFiles);
 
       let thumbnailUrl: string | undefined;
       const mediaUrls: string[] = [];

@@ -102,6 +102,31 @@ export const adminCampaignTransactionsQuerySchema = z.object({
   },
 );
 
+export const adminUsersQuerySchema = z.object({
+  page: z
+    .string()
+    .optional()
+    .transform((v) => {
+      const parsed = parseInt(v || '1', 10);
+      return Number.isNaN(parsed) ? 1 : Math.max(1, parsed);
+    }),
+  limit: z
+    .string()
+    .optional()
+    .transform((v) => {
+      const parsed = parseInt(v || '10', 10);
+      return Number.isNaN(parsed) ? 10 : Math.min(100, Math.max(1, parsed));
+    }),
+  search: z.string().optional(),
+  isEmailVerified: z
+    .string()
+    .optional()
+    .transform((v) => {
+      if (v === undefined) return undefined;
+      return v.toLowerCase() === 'true';
+    }),
+});
+
 export type AdminCampaignAnalyticsQueryDto = z.infer<
   typeof adminCampaignAnalyticsQuerySchema
 >;
@@ -111,3 +136,4 @@ export type AdminCampaignRequestsQueryDto = z.infer<
 export type AdminCampaignTransactionsQueryDto = z.infer<
   typeof adminCampaignTransactionsQuerySchema
 >;
+export type AdminUsersQueryDto = z.infer<typeof adminUsersQuerySchema>;

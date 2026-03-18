@@ -20,6 +20,7 @@ import type {
   AdminCampaignDetailDto,
   AdminCampaignDonationResponseDto,
   AdminCampaignListItemDto,
+  AdminUserListItemDto,
 } from '../dtos/admin/response.dto';
 import { maskAccountNumber } from './pagination';
 
@@ -218,5 +219,15 @@ export function toAdminCampaignAnalyticsDto(
     campaignId,
     days,
     chartData,
+  };
+}
+
+export function toAdminUserListItemDto(user: User): AdminUserListItemDto {
+  return {
+    id: user.id,
+    fullName: user.fullName,
+    email: user.email,
+    isEmailVerified: user.isEmailVerified,
+    createdAt: user.createdAt,
   };
 }

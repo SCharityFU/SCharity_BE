@@ -6,6 +6,7 @@ import donationRoute from './donation.route';
 import userRoute from './user.route';
 import withdrawRoute from './withdraw.route';
 import creatorRoute from './creator.route';
+import commentReactionRoute from './commentreaction.route';
 
 const router = Router();
 
@@ -13,6 +14,7 @@ router.use('/auth', authRoute);
 router.use('/admin', adminRoute);
 router.use('/campaigns', campaignRoute);
 router.use('/creator', creatorRoute);
+router.use('/commentreactions', commentReactionRoute);
 router.use('/donations', donationRoute);
 router.use('/users', userRoute);
 router.use('/withdrawals', withdrawRoute);

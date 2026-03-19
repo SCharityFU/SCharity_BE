@@ -47,15 +47,15 @@ export class DonationService {
     // PayOS description: max 25 chars, only a-zA-Z0-9 and space
     const description = `Donation ${orderCode}`.replace(/[^a-zA-Z0-9 ]/g, '').substring(0, 25);
 
-    //const clientUrl = process.env.CLIENT_URL || 'http://localhost:3001';
+    const clientUrl = process.env.CLIENT_URL;
 
     try {
       const paymentLink = await payos.paymentRequests.create({
         orderCode,
         amount: dto.amount,
         description,
-        returnUrl: `https://s-charity-fe.vercel.app/donations/callback?orderCode=${orderCode}`,
-        cancelUrl: `https://s-charity-fe.vercel.app/donations/callback?orderCode=${orderCode}&cancel=true`,
+        returnUrl: `${clientUrl}/donations/callback?orderCode=${orderCode}`,
+        cancelUrl: `${clientUrl}/donations/callback?orderCode=${orderCode}&cancel=true`,
       });
 
       return {

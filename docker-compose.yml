@@ -13,6 +13,8 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
+      APP_TIMEZONE: ${APP_TIMEZONE:-Asia/Ho_Chi_Minh}
+      TZ: ${APP_TIMEZONE:-Asia/Ho_Chi_Minh}
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: ${DB_NAME}

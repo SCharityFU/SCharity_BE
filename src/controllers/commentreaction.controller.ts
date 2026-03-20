@@ -22,6 +22,23 @@ export const commentReactionController = {
         }
     },
 
+    // Cancel/Xóa reaction
+    async cancelReaction(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { commentId } = req.body;
+            const userId = req.user?.id;
+            if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+            if (!commentId) throw new BadRequestError('Missing commentId');
+            
+            const repo = AppDataSource.getRepository(CommentReaction);
+            const result = await repo.delete({ commentId, userId });
+            
+            res.json({ success: true, affected: result.affected });
+        } catch (err) {
+            next(err);
+        }
+    },
+
     // Lấy danh sách reaction của comment
     async getReactions(req: Request, res: Response, next: NextFunction) {
         try {

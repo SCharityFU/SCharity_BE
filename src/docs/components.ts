@@ -639,16 +639,16 @@
  *
  *     CreateWithdrawRequest:
  *       type: object
- *       required: [campaignId, amount, bankInfo]
+ *       required: [campaignId]
  *       properties:
  *         campaignId:
  *           type: string
  *           format: uuid
- *         amount:
- *           type: number
- *           minimum: 1
- *         bankInfo:
- *           $ref: '#/components/schemas/BankInfo'
+ *         bankAccountId:
+ *           type: string
+ *           format: uuid
+ *           nullable: true
+ *           description: Legacy field, ignored by backend. Withdraw bankInfo is derived from campaign.bankInfo.
  *
  *     ProcessWithdrawRequest:
  *       type: object

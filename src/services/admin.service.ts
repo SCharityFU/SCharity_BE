@@ -255,6 +255,7 @@ export class AdminService {
         status: CampaignStatus.ACTIVE,
         creatorId: request.requesterId,
         approvedAt: now,
+        bankInfo: request.bankInfo, // Copy bank info from request to campaign
       });
 
       const savedCampaign = await CampaignRepository.save(campaign);
@@ -263,10 +264,19 @@ export class AdminService {
       const requester = await UserRepository.findOne({
         where: { id: request.requesterId },
       });
-      await emailQueue.add('sendCampaignApprovedEmail', {
+
+      // Approve user bank account
+      // await BankAccountRepository.update(
+      //   { userId: request.requesterId },
+      //   { isBankInfoApproved: true }
+      // );
+
+      emailQueue.add('sendCampaignApprovedEmail', {
         email: requester?.email,
         creatorName: requester?.fullName,
         campaignTitle: request.title,
+      }).catch(err => {
+        console.error('Failed to enqueue email job', err);
       });
     } else {
       if (!rejectReason) throw new BadRequestError('Reject reason is required');
@@ -276,11 +286,13 @@ export class AdminService {
       const requester = await UserRepository.findOne({
         where: { id: request.requesterId },
       });
-      await emailQueue.add('sendCampaignRejectedEmail', {
+      emailQueue.add('sendCampaignRejectedEmail', {
         email: requester?.email,
         creatorName: requester?.fullName,
         campaignTitle: request.title,
         reason: rejectReason,
+      }).catch(err => {
+        console.error('Failed to enqueue email job', err);
       });
     }
 
@@ -364,7 +376,7 @@ export class AdminService {
     }
 
     if (campaign.status !== CampaignStatus.ACTIVE && campaign.status !== CampaignStatus.CLOSED) {
-      throw new BadRequestError('Only active or closed campaigns can be suspended');
+      throw new BadRequestError('Chỉ các chiến dịch đang hoạt động hoặc đã đóng mới có thể bị tạm dừng');
     }
 
     campaign.status = CampaignStatus.SUSPENDED;
@@ -398,11 +410,13 @@ export class AdminService {
       where: { id: campaign.creatorId },
     });
     if (creator) {
-      await emailQueue.add('sendCampaignSuspendedEmail', {
+      emailQueue.add('sendCampaignSuspendedEmail', {
         email: creator.email,
         creatorName: creator.fullName,
         campaignTitle: campaign.title,
         reason,
+      }).catch(err => {
+        console.error('Failed to enqueue email job', err);
       });
     }
 
@@ -411,13 +425,14 @@ export class AdminService {
 
   async unsuspendCampaign(id: string, adminId: string) {
     const campaign = await CampaignRepository.findOne({ where: { id } });
-    if (!campaign) throw new NotFoundError('Campaign not found');
+    if (!campaign) throw new NotFoundError('Không tìm thấy chiến dịch');
 
     if (campaign.status !== CampaignStatus.SUSPENDED) {
-      throw new BadRequestError('Campaign is not suspended');
+      throw new BadRequestError('Chiến dịch không đang bị tạm dừng');
     }
 
-    campaign.status = campaign.isDeadlineReached ? CampaignStatus.CLOSED : CampaignStatus.ACTIVE;
+    // Deadline reached == Completed
+    campaign.status = campaign.isDeadlineReached ? CampaignStatus.COMPLETED : CampaignStatus.ACTIVE;
     campaign.suspendReason = null as unknown as string;
     campaign.suspendedAt = null as unknown as Date;
     await CampaignRepository.save(campaign);
@@ -435,11 +450,13 @@ export class AdminService {
       where: { id: campaign.creatorId },
     });
     if (creator) {
-      await emailQueue.add('sendCampaignUnsuspendedEmail', {
+      emailQueue.add('sendCampaignUnsuspendedEmail', {
         email: creator.email,
         creatorName: creator.fullName,
         campaignTitle: campaign.title,
         restoredStatus: campaign.status,
+      }).catch(err => {
+        console.error('Failed to enqueue email job', err);
       });
     }
 
@@ -493,11 +510,13 @@ export class AdminService {
       });
 
       const totalWithdrawsAfterApproval = existingSuccessfulWithdraws + 1;
-      const isFinalWithdrawAttempt =
-        totalWithdrawsAfterApproval >= MAXIMUM_WITHDRAWAL_REQUESTS_AMOUNT;
+
+      if (totalWithdrawsAfterApproval >= MAXIMUM_WITHDRAWAL_REQUESTS_AMOUNT) {
+        throw new BadRequestError('Đã đạt đến số lượng yêu cầu rút tiền tối đa, vui lòng liên hệ riêng với admin để được hỗ trợ');
+      }
 
       if (action === 'approve') {
-        const withdrawAmount = request.amount;
+        const withdrawAmount = Number(request.amount);
 
         const availableAmount =
           Number(campaign.raisedAmount ?? 0) -
@@ -509,13 +528,22 @@ export class AdminService {
           );
         }
 
-        campaign.withdrawnAmount += withdrawAmount;
+        campaign.withdrawnAmount = Number(campaign.withdrawnAmount) + withdrawAmount;
 
         request.status = WithdrawStatus.COMPLETED;
         request.processedById = adminId;
         request.processedAt = new Date();
 
-        if (isFinalWithdrawAttempt) {
+        // A campaign is called withdrawn when it has been fully paid out to the campaign creator
+        const normalizedRaisedAmount = Number(campaign.raisedAmount ?? 0);
+        const normalizedWithdrawnAmount = Number(campaign.withdrawnAmount ?? 0);
+
+        let isCampaignFullyWithdrawn = false;
+        if (normalizedWithdrawnAmount >= normalizedRaisedAmount) {
+          campaign.withdrawnAmount = normalizedWithdrawnAmount;
+          isCampaignFullyWithdrawn = true;
+        }
+        if (isCampaignFullyWithdrawn) {
           campaign.status = CampaignStatus.WITHDRAWN;
         }
 
@@ -554,18 +582,22 @@ export class AdminService {
     });
 
     if (action === 'approve') {
-      await emailQueue.add('sendWithdrawApprovedEmail', {
+      emailQueue.add('sendWithdrawApprovedEmail', {
         email: result.requester.email,
         creatorName: result.requester.fullName,
         campaignTitle: result.campaign.title,
         amount: result.amount,
+      }).catch(err => {
+        console.error('Failed to enqueue email job', err);
       });
     } else {
-      await emailQueue.add('sendWithdrawRejectedEmail', {
+      emailQueue.add('sendWithdrawRejectedEmail', {
         email: result.requester.email,
         creatorName: result.requester.fullName,
         campaignTitle: result.campaign.title,
         reason: rejectReason,
+      }).catch(err => {
+        console.error('Failed to enqueue email job', err);
       });
     }
 
@@ -712,11 +744,13 @@ export class AdminService {
         isBankInfoApproved: true,
       });
 
-      await emailQueue.add('sendBankChangeApprovedEmail', {
+      emailQueue.add('sendBankChangeApprovedEmail', {
         email: changeRequest.requester.email,
         userName: changeRequest.requester.fullName,
         bankName: changeRequest.newBankName,
         accountNumber: changeRequest.newAccountNumber,
+      }).catch(err => {
+        console.error('Failed to enqueue email job', err);
       });
     } else {
       if (!rejectReason) throw new BadRequestError('Reject reason is required');
@@ -728,10 +762,12 @@ export class AdminService {
         isBankInfoApproved: true,
       });
 
-      await emailQueue.add('sendBankChangeRejectedEmail', {
+      emailQueue.add('sendBankChangeRejectedEmail', {
         email: changeRequest.requester.email,
         userName: changeRequest.requester.fullName,
         reason: rejectReason,
+      }).catch(err => {
+        console.error('Failed to enqueue email job', err);
       });
     }
 

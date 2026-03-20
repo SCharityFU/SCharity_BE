@@ -14,18 +14,29 @@ import {
   CampaignQueryDto,
   CreateCampaignUpdateDto,
   UpdateCampaignUpdateDto,
-  UpdateBankInfoDto,
   UpdateCampaignRequestDto,
 } from '../validators/campaign.validator';
 import { emailQueue } from '../queues/email.queue';
 import redisClient from '../config/redis';
 import { UserRepository } from '../repositories/user.repository';
 import { CreatorCampaignAnalyticsResponseDto } from '../dtos/campaign/response.dto';
-import { MAXIMUM_CAMPAIGN_REQUESTS_DEADLINE_DAYS } from '../entities/CampaignRequest';
-import { mapCampaignDetailDto } from '../dtos/campaign/mapper';
+import { CampaignRequestStatus, MAXIMUM_CAMPAIGN_REQUESTS_DEADLINE_DAYS } from '../entities/CampaignRequest';
+import { mapCampaignDetailDto, mapCampaignDto } from '../dtos/campaign/mapper';
 
 const CAMPAIGN_CACHE_TTL = 300; // 5 minutes
 const TOP_DONORS_PER_DAY = 5;
+const PUBLIC_CAMPAIGN_STATUSES: CampaignStatus[] = [
+  CampaignStatus.ACTIVE,
+  CampaignStatus.SUSPENDED,
+  CampaignStatus.COMPLETED,
+  CampaignStatus.WITHDRAWN,
+];
+
+const toCampaignStatus = (value?: string): CampaignStatus | undefined => {
+  if (!value) return undefined;
+  const normalized = value.toLowerCase() as CampaignStatus;
+  return Object.values(CampaignStatus).includes(normalized) ? normalized : undefined;
+};
 
 const toDateKey = (value: string | Date): string => {
   const date = value instanceof Date ? value : new Date(value);
@@ -139,18 +150,20 @@ export class CampaignService {
     await CampaignRequestRepository.save(request);
 
     // Notify admins
-    await emailQueue.add('sendNewCampaignRequestEmail', {
+    emailQueue.add('sendNewCampaignRequestEmail', {
       campaignTitle: dto.title,
       requesterName: creator.fullName,
+    }).catch(err => {
+      console.error('Failed to enqueue new campaign request email:', err);
     });
 
     return request;
   }
 
   async getMyRequests(creatorId: string, page: number, limit: number, status?: string) {
-    const where: any = { requesterId: creatorId };
+    const where: { requesterId: string; status?: CampaignRequestStatus } = { requesterId: creatorId };
     if (status && ['pending', 'approved', 'rejected'].includes(status.toLowerCase())) {
-      where.status = status.toLowerCase();
+      where.status = status.toLowerCase() as CampaignRequestStatus;
     }
     return CampaignRequestRepository.findAndCount({
       where,
@@ -195,39 +208,50 @@ export class CampaignService {
     return request;
   }
 
-  async updateRequestBankInfo(requestId: string, creatorId: string, dto: UpdateBankInfoDto) {
-    const request = await CampaignRequestRepository.findOne({
-      where: { id: requestId, requesterId: creatorId },
-    });
-    if (!request) throw new NotFoundError('Campaign request not found');
-
-    if (request.status !== 'pending') {
-      throw new ForbiddenError('Bank info can only be updated for pending requests');
-    }
-
-    request.bankInfo = dto.bankInfo;
-    await CampaignRequestRepository.save(request);
-    return request;
-  }
-
   async listCampaigns(query: CampaignQueryDto) {
     const cacheKey = `campaigns:${JSON.stringify(query)}`;
-    const cached = await redisClient.get(cacheKey);
-    if (cached) return JSON.parse(cached);
+    // TODO: Handle caching here, for now we just disable it for faster updates reflects
+    // const cached = await redisClient.get(cacheKey);
+    // if (cached) return JSON.parse(cached);
 
-    const [campaigns, total] = await CampaignRepository.findWithPagination(
-      query.page,
-      query.limit,
-      {
-        status: CampaignStatus.ACTIVE,
-        category: query.category,
-        search: query.search,
-      },
-      query.sortBy,
-      query.sortOrder,
-    );
+    const requestedStatus = toCampaignStatus(query.status);
+    const statusFilter = requestedStatus && PUBLIC_CAMPAIGN_STATUSES.includes(requestedStatus)
+      ? requestedStatus
+      : undefined;
 
-    const result = { campaigns, total };
+    let campaigns: Awaited<ReturnType<typeof CampaignRepository.findPublicWithPagination>>[0];
+    let total: number;
+
+    try {
+      [campaigns, total] = await CampaignRepository.findPublicWithPagination(
+        query.page,
+        query.limit,
+        {
+          status: statusFilter,
+          category: query.category,
+          search: query.search,
+        },
+        true,
+      );
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message.toLowerCase() : '';
+      if (!message.includes('unaccent')) {
+        throw error;
+      }
+
+      [campaigns, total] = await CampaignRepository.findPublicWithPagination(
+        query.page,
+        query.limit,
+        {
+          status: statusFilter,
+          category: query.category,
+          search: query.search,
+        },
+        false,
+      );
+    }
+
+    const result = { campaigns: campaigns.map(mapCampaignDto), total };
     await redisClient.setex(cacheKey, CAMPAIGN_CACHE_TTL, JSON.stringify(result));
     return result;
   }
@@ -385,7 +409,7 @@ export class CampaignService {
     const campaign = await CampaignRepository.findOne({ where: { id: campaignId } });
     if (!campaign) throw new NotFoundError('Campaign not found');
 
-    const where: any = { campaignId };
+    const where: { campaignId: string; isDraft?: boolean } = { campaignId };
 
     // Filter by status: 'draft' (isDraft = true), 'published' (isDraft = false), 'all' (no filter)
     if (status === 'draft') {
@@ -434,11 +458,13 @@ export class CampaignService {
 
       const uniqueDonorEmails = [...new Set(donors.map((d) => d.donor?.email).filter(Boolean))];
       if (uniqueDonorEmails.length > 0) {
-        await emailQueue.add('sendCampaignUpdateNotification', {
+        emailQueue.add('sendCampaignUpdateNotification', {
           emails: uniqueDonorEmails,
           campaignTitle: campaign.title,
           updateTitle: dto.title,
           campaignId,
+        }).catch(err => {
+          void err;
         });
       }
     }

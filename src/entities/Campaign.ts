@@ -36,9 +36,15 @@ export enum CampaignCategory {
   OTHER = 'other',
 }
 
-/**
- * Max is 3
- */
+const CAMPAIGN_STATUS_MESSAGES: Record<CampaignStatus, string> = {
+  [CampaignStatus.REJECTED]: 'Chiến dịch không hợp lệ.',
+  [CampaignStatus.ACTIVE]: 'Chiến dịch đang mở. Hãy cùng chung tay lan tỏa yêu thương!',
+  [CampaignStatus.CLOSED]: 'Chiến dịch đã đóng.',
+  [CampaignStatus.SUSPENDED]: 'Chiến dịch tạm dừng để xác minh thông tin minh bạch.',
+  [CampaignStatus.COMPLETED]: 'Chiến dịch thành công! Nguồn lực đang được chuẩn bị giải ngân.',
+  [CampaignStatus.WITHDRAWN]: 'Sứ mệnh hoàn thành! Toàn bộ số tiền đã được trao tận tay.',
+};
+
 export const MAXIMUM_WITHDRAWAL_REQUESTS_AMOUNT = 3;
 
 @Entity('campaigns')
@@ -78,6 +84,13 @@ export class Campaign {
 
   @Column({ type: 'simple-array', nullable: true })
   mediaUrls: string[];
+
+  @Column({ nullable: true, type: 'jsonb' })
+  bankInfo: {
+    bankName: string;
+    accountNumber: string;
+    accountHolderName: string;
+  };
 
   @Column({ nullable: true })
   suspendReason: string;
@@ -126,12 +139,33 @@ export class Campaign {
   updatedAt: Date;
 
   get progressPercent(): number {
-    if (!this.goalAmount || this.goalAmount === 0) return 0;
-    return Math.min(100, (this.raisedAmount / this.goalAmount) * 100);
+    const goalAmount = Number(this.goalAmount ?? 0);
+    if (!Number.isFinite(goalAmount) || goalAmount <= 0) return 0;
+
+    const raisedAmount = Number(this.raisedAmount ?? 0);
+    const safeRaisedAmount = Number.isFinite(raisedAmount) ? raisedAmount : 0;
+
+    return Math.min(100, (safeRaisedAmount / goalAmount) * 100);
+  }
+
+  get availableAmount(): number {
+    const raisedAmount = Number(this.raisedAmount ?? 0);
+    const withdrawnAmount = Number(this.withdrawnAmount ?? 0);
+    const safeRaisedAmount = Number.isFinite(raisedAmount) ? raisedAmount : 0;
+    const safeWithdrawnAmount = Number.isFinite(withdrawnAmount) ? withdrawnAmount : 0;
+    return safeRaisedAmount - safeWithdrawnAmount;
+  }
+
+  get progressPercentage(): number {
+    return this.progressPercent;
+  }
+
+  get statusMessage(): string {
+    return CAMPAIGN_STATUS_MESSAGES[this.status] ?? 'Trạng thái chiến dịch chưa xác định.';
   }
 
   get isDeadlineReached(): boolean {
-    return new Date() >= this.deadline;
+    return new Date() > this.deadline;
   }
 
   get canClose(): boolean {

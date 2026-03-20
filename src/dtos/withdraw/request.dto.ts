@@ -2,6 +2,6 @@
 
 export interface CreateWithdrawRequestDto {
   campaignId: string;
-  amount: number;
-  bankAccountId: string;
+  // Legacy optional field for backward compatibility. Ignored by service.
+  bankAccountId?: string;
 }

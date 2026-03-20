@@ -18,9 +18,9 @@ export class DonationService {
       where: { id: dto.campaignId },
       relations: ['creator'],
     });
-    if (!campaign) throw new NotFoundError('Campaign not found');
+    if (!campaign) throw new NotFoundError('Không tìm thấy chiến dịch');
     if (campaign.status !== CampaignStatus.ACTIVE) {
-      throw new BadRequestError('This campaign is not currently accepting donations');
+      throw new BadRequestError('Chiến dịch này hiện không chấp nhận quyên góp');
     }
 
     // let donor = null;
@@ -131,21 +131,25 @@ export class DonationService {
     const donorName = donation.isAnonymous ? 'Anonymous' : (donor?.fullName ?? 'Donor');
 
     if (donor?.email) {
-      await emailQueue.add('sendDonationReceiptEmail', {
+      emailQueue.add('sendDonationReceiptEmail', {
         email: donor.email,
         donorName: donor.fullName ?? 'Donor',
         campaignTitle: campaign.title,
         amount: donation.amount,
         donationId: donation.id,
+      }).catch(err => {
+        console.error('Failed to enqueue email job', err);
       });
     }
 
-    await emailQueue.add('sendNewDonationNotification', {
+    emailQueue.add('sendNewDonationNotification', {
       email: campaign.creator.email,
       creatorName: campaign.creator.fullName,
       campaignTitle: campaign.title,
       amount: donation.amount,
       donorName,
+    }).catch(err => {
+      console.error('Failed to enqueue email job', err);
     });
 
     return { donation, alreadyProcessed: false };

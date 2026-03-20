@@ -1,6 +1,5 @@
 import { WithdrawRepository } from '../repositories/withdraw.repository';
 import { CampaignRepository } from '../repositories/campaign.repository';
-import { BankAccountRepository } from '../repositories/user.repository';
 import { UserRepository } from '../repositories/user.repository';
 import { CampaignStatus } from '../entities/Campaign';
 import { NotFoundError, BadRequestError, ForbiddenError, ConflictError } from '../utils/errors';
@@ -54,11 +53,13 @@ export class WithdrawService {
     const withdrawnAmount = Number(campaign.withdrawnAmount ?? 0);
     const maxWithdrawable = raisedAmount - withdrawnAmount;
 
-    if (!campaign.goalAmount || campaign.goalAmount <= 0) {
+    const goalAmount = Number(campaign.goalAmount ?? 0);
+
+    if (!Number.isFinite(goalAmount) || goalAmount <= 0) {
       throw new BadRequestError('Campaign goal amount is invalid');
     }
 
-    const progress = raisedAmount / campaign.goalAmount;
+    const progress = raisedAmount / goalAmount;
 
     if (progress < 0.5) {
       throw new BadRequestError('Chiến dịch phải đạt ít nhất 50% mục tiêu để có thể rút tiền');
@@ -71,15 +72,19 @@ export class WithdrawService {
       throw new BadRequestError('Không còn số tiền nào để rút từ chiến dịch này');
     }
 
-    // Get bank account info
-    const bankAccount = dto.bankAccountId
-      ? await BankAccountRepository.findOne({ where: { id: dto.bankAccountId, userId: creatorId } })
-      : await BankAccountRepository.findDefaultByUserId(creatorId);
+    const bankInfo = campaign.bankInfo;
+    const hasValidBankInfo = Boolean(
+      bankInfo
+      && typeof bankInfo.bankName === 'string'
+      && bankInfo.bankName.trim().length > 0
+      && typeof bankInfo.accountNumber === 'string'
+      && bankInfo.accountNumber.trim().length > 0
+      && typeof bankInfo.accountHolderName === 'string'
+      && bankInfo.accountHolderName.trim().length > 0,
+    );
 
-    if (!bankAccount) throw new NotFoundError('Bank account not found');
-
-    if (bankAccount.isBankInfoApproved === false) {
-      throw new BadRequestError('Bank information is currently pending admin approval');
+    if (!hasValidBankInfo) {
+      throw new BadRequestError('bankInfo is missing or invalid for this campaign');
     }
 
     const request = WithdrawRepository.create({
@@ -87,9 +92,9 @@ export class WithdrawService {
       requesterId: creatorId,
       amount: maxWithdrawable,
       bankInfo: {
-        bankName: bankAccount.bankName,
-        accountNumber: bankAccount.accountNumber,
-        accountHolderName: bankAccount.accountHolderName,
+        bankName: bankInfo.bankName,
+        accountNumber: bankInfo.accountNumber,
+        accountHolderName: bankInfo.accountHolderName,
       },
       status: WithdrawStatus.PENDING,
     });
@@ -97,10 +102,12 @@ export class WithdrawService {
     await WithdrawRepository.save(request);
 
     // Notify admins
-    await emailQueue.add('sendWithdrawRequestNotification', {
+    emailQueue.add('sendWithdrawRequestNotification', {
       creatorName: creator.fullName,
       campaignTitle: campaign.title,
       amount: maxWithdrawable,
+    }).catch(err => {
+      console.error('Failed to enqueue email job', err);
     });
 
     return request;

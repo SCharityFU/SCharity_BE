@@ -124,13 +124,15 @@ export const campaignController = {
   },
 
   // CampaignCreator: update bank info for a campaign request
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async updateRequestBankInfo(req: Request, res: Response, next: NextFunction) {
-    try {
-      const request = await campaignService.updateRequestBankInfo(req.params.requestId, req.user!.id, req.body);
-      sendSuccess(res, request, 'Bank information updated successfully');
-    } catch (err) {
-      next(err);
-    }
+    // try {
+    //   const request = await campaignService.updateRequestBankInfo(req.params.requestId, req.user!.id, req.body);
+    //   sendSuccess(res, request, 'Bank information updated successfully');
+    // } catch (err) {
+    //   next(err);
+    // }
+    throw new BadRequestError('Bank information cannot be updated at the moment. Please contact support if you need to change it.');
   },
 
   // CampaignCreator: update campaign request (pending only)

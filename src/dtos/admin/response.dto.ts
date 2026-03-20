@@ -2,6 +2,7 @@
 
 import { CampaignCategory, CampaignStatus } from '../../entities/Campaign';
 import { DonationStatus } from '../../entities/Donation';
+import type { BankInfoDto } from '../campaign/response.dto';
 
 export interface DashboardStatsResponseDto {
   totalCampaigns: number;
@@ -83,6 +84,7 @@ export interface AdminCampaignDetailDto {
   deadline: Date;
   thumbnailUrl: string | null;
   mediaUrls: string[] | null;
+  bankInfo: BankInfoDto | null;
   suspendReason: string | null;
   suspendedAt: Date | null;
   closedAt: Date | null;

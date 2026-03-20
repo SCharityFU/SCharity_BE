@@ -165,7 +165,7 @@ export class UserService {
     const user = await UserRepository.findOne({ where: { id: userId } });
 
     // Notify admin via email queue
-    await emailQueue.add('sendBankChangeRequestNotification', {
+    emailQueue.add('sendBankChangeRequestNotification', {
       requesterName: user?.fullName || 'Unknown',
       requesterEmail: user?.email || '',
       currentBankName: bankAccount.bankName,
@@ -175,6 +175,8 @@ export class UserService {
       newAccountNumber: dto.accountNumber,
       newAccountHolderName: dto.accountHolderName,
       changeRequestId: changeRequest.id,
+    }).catch(err => {
+      console.error('Failed to enqueue email job', err);
     });
 
     return changeRequest;
@@ -194,15 +196,15 @@ export class UserService {
       isBankInfoApproved: bankAccount.isBankInfoApproved,
       latestRequest: latestRequest
         ? {
-            id: latestRequest.id,
-            status: latestRequest.status,
-            newBankName: latestRequest.newBankName,
-            newAccountNumber: latestRequest.newAccountNumber,
-            newAccountHolderName: latestRequest.newAccountHolderName,
-            rejectReason: latestRequest.rejectReason,
-            createdAt: latestRequest.createdAt,
-            processedAt: latestRequest.processedAt,
-          }
+          id: latestRequest.id,
+          status: latestRequest.status,
+          newBankName: latestRequest.newBankName,
+          newAccountNumber: latestRequest.newAccountNumber,
+          newAccountHolderName: latestRequest.newAccountHolderName,
+          rejectReason: latestRequest.rejectReason,
+          createdAt: latestRequest.createdAt,
+          processedAt: latestRequest.processedAt,
+        }
         : null,
     };
   }

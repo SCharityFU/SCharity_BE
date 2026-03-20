@@ -6,6 +6,9 @@ import { UpdateCategory } from '../../entities/CampaignUpdate';
 import { DonationChartDataPointDto } from '../admin';
 import { UserPublicDto } from '../auth/response.dto';
 import type { DonationResponseDto } from '../donation/response.dto';
+import type { BankInfoDto } from './request.dto';
+
+export type { BankInfoDto } from './request.dto';
 
 export interface PublicUserBasicDto {
   id: string;
@@ -26,6 +29,7 @@ export interface CampaignDto {
   category: CampaignCategory;
   thumbnailUrl: string | null;
   mediaUrls: string[] | null;
+  bankInfo: BankInfoDto | null;
   suspendReason: string | null;
   suspendedAt: Date | null;
   closedAt: Date | null;
@@ -53,6 +57,7 @@ export interface PublicCampaignDto {
   category: CampaignCategory;
   thumbnailUrl: string | null;
   mediaUrls: string[] | null;
+  bankInfo: BankInfoDto | null;
   suspendReason: string | null;
   suspendedAt: Date | null;
   closedAt: Date | null;

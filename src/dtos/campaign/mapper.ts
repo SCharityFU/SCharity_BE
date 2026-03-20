@@ -78,6 +78,13 @@ export const mapCampaignDto = (campaign: Campaign): PublicCampaignDto => ({
   category: campaign.category,
   thumbnailUrl: campaign.thumbnailUrl ?? null,
   mediaUrls: campaign.mediaUrls ?? null,
+  bankInfo: campaign.bankInfo
+    ? {
+      bankName: campaign.bankInfo.bankName,
+      accountNumber: campaign.bankInfo.accountNumber,
+      accountHolderName: campaign.bankInfo.accountHolderName,
+    }
+    : null,
   suspendReason: campaign.suspendReason ?? null,
   suspendedAt: campaign.suspendedAt ?? null,
   closedAt: campaign.closedAt ?? null,

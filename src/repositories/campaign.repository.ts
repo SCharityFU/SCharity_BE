@@ -4,6 +4,73 @@ import { CampaignRequest, CampaignRequestStatus } from '../entities/CampaignRequ
 import { CampaignUpdate } from '../entities/CampaignUpdate';
 
 export const CampaignRepository = AppDataSource.getRepository(Campaign).extend({
+  async findPublicWithPagination(
+    page: number,
+    limit: number,
+    filters: {
+      status?: CampaignStatus;
+      category?: string;
+      search?: string;
+    },
+    useAccentInsensitiveSearch = true,
+  ): Promise<[Campaign[], number]> {
+    const publicStatuses = [
+      CampaignStatus.ACTIVE,
+      CampaignStatus.SUSPENDED,
+      CampaignStatus.COMPLETED,
+      CampaignStatus.WITHDRAWN,
+    ];
+
+    const query = this.createQueryBuilder('campaign')
+      .leftJoinAndSelect('campaign.creator', 'creator')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    if (filters.status && publicStatuses.includes(filters.status)) {
+      query.andWhere('campaign.status = :status', { status: filters.status });
+    } else {
+      query.andWhere('campaign.status IN (:...publicStatuses)', { publicStatuses });
+    }
+
+    if (filters.category) {
+      query.andWhere('campaign.category = :category', { category: filters.category });
+    }
+
+    if (filters.search) {
+      if (useAccentInsensitiveSearch) {
+        query.andWhere('(campaign.title ILIKE :search OR unaccent(campaign.title) ILIKE unaccent(:search))', {
+          search: `%${filters.search}%`,
+        });
+      } else {
+        query.andWhere('campaign.title ILIKE :search', {
+          search: `%${filters.search}%`,
+        });
+      }
+    }
+
+    query
+      .addSelect(
+        `CASE
+          WHEN campaign.status = :activeStatus THEN 1
+          WHEN campaign.status = :suspendedStatus THEN 2
+          WHEN campaign.status = :completedStatus THEN 3
+          WHEN campaign.status = :withdrawnStatus THEN 4
+          ELSE 5
+        END`,
+        'statuspriority',
+      )
+      .setParameters({
+        activeStatus: CampaignStatus.ACTIVE,
+        suspendedStatus: CampaignStatus.SUSPENDED,
+        completedStatus: CampaignStatus.COMPLETED,
+        withdrawnStatus: CampaignStatus.WITHDRAWN,
+      })
+      .orderBy('statuspriority', 'ASC')
+      .addOrderBy('campaign.createdAt', 'DESC');
+
+    return query.getManyAndCount();
+  },
+
   async findByIdWithCreator(id: string): Promise<Campaign | null> {
     return this.findOne({
       where: { id },
@@ -211,7 +278,7 @@ export const CampaignUpdateRepository = AppDataSource.getRepository(CampaignUpda
     campaignId: string,
     page: number,
     limit: number,
-    where?: Record<string, any>,
+    where?: { isDraft?: boolean },
   ): Promise<[CampaignUpdate[], number]> {
     // If where is provided, merge it with campaignId; otherwise default to published updates only
     const whereClause = where

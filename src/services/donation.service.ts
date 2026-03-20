@@ -1,5 +1,5 @@
 import { DonationRepository, CommentRepository } from '../repositories/donation.repository';
-import { CampaignRepository } from '../repositories/campaign.repository';
+import { CampaignRepository, CampaignUpdateRepository } from '../repositories/campaign.repository';
 import { DonationStatus, PaymentMethod } from '../entities/Donation';
 import { CampaignStatus } from '../entities/Campaign';
 import { NotFoundError, BadRequestError, ForbiddenError } from '../utils/errors';
@@ -7,6 +7,10 @@ import { CreateDonationDto, CreateCommentDto } from '../validators/donation.vali
 import { emailQueue } from '../queues/email.queue';
 import { payos } from '../utils/payos';
 import { toCampaignDonationAdminDto } from '../utils/dto-mapper';
+import redisClient from '../config/redis';
+import { mapCampaignDetailDto } from '../dtos/campaign/mapper';
+
+const CAMPAIGN_CACHE_TTL = 300; // 5 minutes
 
 export class DonationService {
   /**
@@ -121,11 +125,55 @@ export class DonationService {
       await CommentRepository.save(comment);
     }
 
-    // 6. Xóa cache campaign detail để FE luôn lấy dữ liệu mới nhất
+    // 6. Refresh cache campaign detail với data mới nhất - setex ngay lập tức
     const campaignCacheKey = `campaign:v2:${donation.campaignId}`;
-    await import('../config/redis').then(({ redisClient }) => redisClient.del(campaignCacheKey));
+    await redisClient.del(campaignCacheKey);
 
-    // 6. Email notifications
+    // Fetch data campaign mới + donations + comments + updates để cache ngay
+    const [fullCampaign, donations, updates, comments] = await Promise.all([
+      CampaignRepository.findOne({
+        where: { id: donation.campaignId },
+        relations: ['creator'],
+      }),
+      DonationRepository.find({
+        where: { campaignId: donation.campaignId, status: DonationStatus.SUCCESS },
+        relations: ['donor'],
+        order: { createdAt: 'DESC' },
+      }),
+      CampaignUpdateRepository.find({
+        where: { campaignId: donation.campaignId, isDraft: false },
+        relations: ['creator'],
+        order: { createdAt: 'DESC' },
+      }),
+      CommentRepository.find({
+        where: { campaignId: donation.campaignId },
+        relations: ['donor', 'donation'],
+        order: { createdAt: 'DESC' },
+      }),
+    ]);
+
+
+    if (fullCampaign) {
+    Object.assign(fullCampaign, {
+          donations,
+          updates,
+          comments,
+        });
+
+       // Guard against raisedAmount being stale by comparing with actual donations sum
+      const raisedAmount = donations.reduce((sum, d) => sum + Number(d.amount), 0);
+      const existingAmount = fullCampaign.raisedAmount ? Number(fullCampaign.raisedAmount) : 0;
+      const realAmount = Math.max(raisedAmount, existingAmount);
+      if (realAmount !== existingAmount) {
+        fullCampaign.raisedAmount = realAmount;
+        await CampaignRepository.save(fullCampaign);
+      }
+      // Setex cache ngay với data mới
+      const mapped = mapCampaignDetailDto(fullCampaign);
+      await redisClient.setex(campaignCacheKey, CAMPAIGN_CACHE_TTL, JSON.stringify(mapped));
+    }
+
+    // 7. Email notifications
     const campaign = donation.campaign;
     const donor = donation.donor;
     const donorName = donation.isAnonymous ? 'Anonymous' : (donor?.fullName ?? 'Donor');

@@ -66,6 +66,7 @@ Hỗ trợ upload ảnh/video minh chứng cho bài đăng Timeline thông qua A
 ### Environment Variables (.env)
 Tham khảo `.env.example` để cấu hình các thông số:
 - `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`
+- `APP_TIMEZONE`
 - `REDIS_URL`
 - `AWS_S3_BUCKET`, `AWS_ACCESS_KEY`
 - `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`

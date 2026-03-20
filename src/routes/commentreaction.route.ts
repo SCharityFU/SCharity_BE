@@ -70,6 +70,37 @@ const router = Router();
 router.post('/react', authenticate, commentReactionController.react);
 /**
  * @swagger
+ * /commentreactions/cancel:
+ *   post:
+ *     summary: Cancel/Remove a reaction from a comment
+ *     tags: [CommentReactions]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               commentId:
+ *                 type: string
+ *                 description: ID of the comment
+ *     responses:
+ *       200:
+ *         description: Reaction removed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 affected:
+ *                   type: number
+ *                   description: Number of reactions deleted
+ */
+router.post('/cancel', authenticate, commentReactionController.cancelReaction);
+/**
+ * @swagger
  * /commentreactions/{commentId}/reactions:
  *   get:
  *     summary: Get reactions for a comment

@@ -235,8 +235,8 @@ export class CampaignService {
   async getCampaignById(id: string) {
     // For now this one is not cached so that user can see the latest data immediately after donation
     const cacheKey = `campaign:v2:${id}`;
-    // const cached = await redisClient.get(cacheKey);
-    // if (cached) return JSON.parse(cached);
+    const cached = await redisClient.get(cacheKey);
+    if (cached) return JSON.parse(cached);
 
     const campaign = await CampaignRepository.findOne({
       where: { id },
@@ -279,7 +279,7 @@ export class CampaignService {
 
     const mapped = mapCampaignDetailDto(campaign);
 
-    await redisClient.setex(cacheKey, CAMPAIGN_CACHE_TTL, JSON.stringify(mapped));
+    // await redisClient.setex(cacheKey, CAMPAIGN_CACHE_TTL, JSON.stringify(mapped));
     return mapped;
   }
 
